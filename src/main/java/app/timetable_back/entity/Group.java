@@ -1,0 +1,46 @@
+package app.timetable_back.entity;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.OffsetDateTime;
+
+@Entity
+@Table(name = "groups")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class Group {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private Long id;
+
+    @Column(name = "name", nullable = false, length = 255)
+    @NotBlank
+    @Size(max = 255)
+    private String name;
+
+    @Column(name = "course_year", nullable = false)
+    @Min(1)
+    @Max(6)
+    private Integer courseYear;
+
+    @Column(name = "student_count", nullable = false)
+    @Min(0)
+    private Integer studentCount;
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private OffsetDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private OffsetDateTime updatedAt;
+}

@@ -18,7 +18,7 @@ public class MyUserDetails implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        String role = user.getRole();
+        String role = user.getRole().name();
         if (!role.startsWith("ROLE_")) {
             role = "ROLE_" + role;
         }

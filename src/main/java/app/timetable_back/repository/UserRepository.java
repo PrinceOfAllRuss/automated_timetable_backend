@@ -1,6 +1,7 @@
 package app.timetable_back.repository;
 
 import app.timetable_back.entity.User;
+import app.timetable_back.entity.UserRole;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -14,5 +15,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByEmail(String email);
 
-    List<User> findByRole(String role);
+    List<User> findByRole(UserRole role);
 }

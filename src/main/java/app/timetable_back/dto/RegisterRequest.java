@@ -1,7 +1,9 @@
 package app.timetable_back.dto;
 
+import app.timetable_back.entity.UserRole;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -31,9 +33,8 @@ public class RegisterRequest {
     @Size(min = 4, message = "Пароль должен содержать минимум 4 символа")
     private String password;
 
-    @NotBlank(message = "Роль не может быть пустой")
-    @Size(max = 50, message = "Роль не должна превышать 50 символов")
-    private String role;
+    @NotNull(message = "Роль не может быть пустой")
+    private UserRole role;
 
     @Size(max = 20, message = "Телефон не должен превышать 20 символов")
     private String phone;

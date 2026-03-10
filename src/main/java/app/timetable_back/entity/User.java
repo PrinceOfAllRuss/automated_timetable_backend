@@ -3,6 +3,10 @@ package app.timetable_back.entity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "users")
@@ -15,38 +19,45 @@ public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "Id")
+    @Column(name = "id")
     private Long id;
 
-    @Column(name = "First_name")
+    @Column(name = "first_name", nullable = false, length = 100)
     @NotBlank
     @Size(max = 100)
     private String firstName;
 
-    @Column(name = "Last_name")
+    @Column(name = "last_name", nullable = false, length = 100)
     @NotBlank
     @Size(max = 100)
     private String lastName;
 
-    @Column(name = "Email")
+    @Column(name = "email", nullable = false, length = 255)
     @NotBlank
     @Email
     @Size(max = 255)
     private String email;
 
-    @Column(name = "Password_hash")
+    @Column(name = "password_hash", nullable = false, length = 255)
     @NotBlank
-    @Size(min = 4)
     private String passwordHash;
 
-    @Column(name = "Role")
-    @NotBlank
-    @Size(max = 50)
-    private String role;
+    @Column(name = "role", nullable = false, length = 50)
+    @Enumerated(EnumType.STRING)
+    @NotNull
+    private UserRole role;
 
-    @Column(name = "Phone")
+    @Column(name = "phone", length = 20)
     @Size(max = 20)
     private String phone;
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private OffsetDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private OffsetDateTime updatedAt;
 
     @Override
     public String toString() {

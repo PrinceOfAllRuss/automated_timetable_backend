@@ -65,7 +65,7 @@ public class AuthService {
                     .accessToken(accessToken)
                     .refreshToken(refreshToken)
                     .tokenType("Bearer")
-                    .role(user.getRole())
+                    .role(user.getRole().name())
                     .build();
         } catch (BadCredentialsException e) {
             throw new BadCredentialsException("Неверный email или пароль");
@@ -126,7 +126,7 @@ public class AuthService {
                 .accessToken(newAccessToken)
                 .refreshToken(newRefreshToken)
                 .tokenType("Bearer")
-                .role(user.getRole())
+                .role(user.getRole().name())
                 .build();
     }
 

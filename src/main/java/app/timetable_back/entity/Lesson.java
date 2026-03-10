@@ -1,0 +1,65 @@
+package app.timetable_back.entity;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+
+@Entity
+@Table(name = "lessons")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class Lesson {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private Long id;
+
+    @Column(name = "start_at", nullable = false)
+    @NotNull
+    private LocalDateTime startAt;
+
+    @Column(name = "end_at", nullable = false)
+    @NotNull
+    private LocalDateTime endAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "room_id")
+    private Room room;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "subject_id")
+    private Subject subject;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "teacher_id")
+    private User teacher;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "recurrence_id")
+    private LessonRecurrence recurrence;
+
+    @Column(name = "is_override")
+    @Builder.Default
+    private Boolean isOverride = false;
+
+    @Column(name = "is_cancelled")
+    @Builder.Default
+    private Boolean isCancelled = false;
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private OffsetDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private OffsetDateTime updatedAt;
+}
