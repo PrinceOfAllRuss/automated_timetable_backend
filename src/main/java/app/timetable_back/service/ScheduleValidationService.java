@@ -60,12 +60,12 @@ public class ScheduleValidationService {
     public boolean hasGroupConflict(Long groupId, LocalDateTime startAt, LocalDateTime endAt, Long excludeLessonId) {
         String baseQuery = """
             SELECT COUNT(*)
-            FROM lesson_groups lg
-            JOIN lessons l ON lg.lesson_id = l.id
-            WHERE lg.group_id = :groupId
-              AND l.is_cancelled = FALSE
-              AND l.start_at < :endAt
-              AND l.end_at > :startAt
+            FROM LessonStudentGroup lsg
+            JOIN lsg.lesson l
+            WHERE lsg.id.groupId = :groupId
+              AND l.isCancelled = FALSE
+              AND l.startAt < :endAt
+              AND l.endAt > :startAt
         """;
 
         Long result;
@@ -73,15 +73,15 @@ public class ScheduleValidationService {
             String queryWithExclude = baseQuery + " AND l.id != :excludeLessonId";
             result = entityManager.createQuery(queryWithExclude, Long.class)
                     .setParameter("groupId", groupId)
-                    .setParameter("startAt", startAt)
                     .setParameter("endAt", endAt)
+                    .setParameter("startAt", startAt)
                     .setParameter("excludeLessonId", excludeLessonId)
                     .getSingleResult();
         } else {
             result = entityManager.createQuery(baseQuery, Long.class)
                     .setParameter("groupId", groupId)
-                    .setParameter("startAt", startAt)
                     .setParameter("endAt", endAt)
+                    .setParameter("startAt", startAt)
                     .getSingleResult();
         }
 
@@ -106,10 +106,10 @@ public class ScheduleValidationService {
     @Transactional(readOnly = true)
     public boolean isRoomCapacitySufficient(Long lessonId, Long roomId) {
         String totalStudentsQuery = """
-            SELECT COALESCE(SUM(g.student_count), 0)
-            FROM lesson_groups lg
-            JOIN groups g ON lg.group_id = g.id
-            WHERE lg.lesson_id = :lessonId
+            SELECT COALESCE(SUM(g.studentCount), 0)
+            FROM LessonStudentGroup lsg
+            JOIN lsg.group g
+            WHERE lsg.id.lessonId = :lessonId
         """;
 
         Long totalStudents = entityManager.createQuery(totalStudentsQuery, Long.class)
@@ -130,8 +130,8 @@ public class ScheduleValidationService {
     @Transactional(readOnly = true)
     public boolean isRoomCapacitySufficientForGroups(Long roomId, List<Long> groupIds) {
         String totalStudentsQuery = """
-            SELECT COALESCE(SUM(g.student_count), 0)
-            FROM groups g
+            SELECT COALESCE(SUM(g.studentCount), 0)
+            FROM StudentGroup g
             WHERE g.id IN :groupIds
         """;
 

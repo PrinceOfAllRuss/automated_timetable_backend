@@ -9,13 +9,13 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.OffsetDateTime;
 
 @Entity
-@Table(name = "groups")
+@Table(name = "student_groups")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Group {
+public class StudentGroup {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

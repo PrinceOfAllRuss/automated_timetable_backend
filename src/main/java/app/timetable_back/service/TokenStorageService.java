@@ -12,7 +12,7 @@ public class TokenStorageService {
 
     private final RedisTemplate<String, String> redisTemplate;
     private static final String TOKEN_KEY_PREFIX = "refresh_token:";
-    private static final long REFRESH_TOKEN_TTL_SECONDS = 604800;
+    private static final long REFRESH_TOKEN_TTL_SECONDS = 604800; // 7 days in seconds
 
     public TokenStorageService(RedisTemplate<String, String> redisTemplate) {
         this.redisTemplate = redisTemplate;

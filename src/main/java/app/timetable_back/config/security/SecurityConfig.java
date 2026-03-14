@@ -50,8 +50,13 @@ public class SecurityConfig {
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // Swagger UI endpoints
+                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
+                        // Auth endpoints
                         .requestMatchers("/auth/login", "/auth/refresh").permitAll()
+                        // Admin endpoints
                         .requestMatchers("/admin/**").hasRole("ADMIN")
+                        // All other requests
                         .anyRequest().authenticated()
                 )
                 .httpBasic(basic -> basic.disable());

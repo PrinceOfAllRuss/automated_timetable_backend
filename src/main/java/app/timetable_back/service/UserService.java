@@ -1,5 +1,7 @@
 package app.timetable_back.service;
 
+import app.timetable_back.dto.UserDto;
+import app.timetable_back.dto.UserResponseDto;
 import app.timetable_back.entity.User;
 import app.timetable_back.repository.UserRepository;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -7,8 +9,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
-@Transactional
 public class UserService {
 
     private final UserRepository userRepository;
@@ -19,20 +23,127 @@ public class UserService {
         this.passwordEncoder = passwordEncoder;
     }
 
+    @Transactional(readOnly = true)
     public User findByEmail(String email) {
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("Пользователь с email '" + email + "' не найден"));
+                .orElseThrow(() -> new UsernameNotFoundException("User with email '" + email + "' not found"));
     }
 
+    @Transactional(readOnly = true)
+    public User findById(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new UsernameNotFoundException("User with id '" + id + "' not found"));
+    }
+
+    @Transactional(readOnly = true)
     public boolean existsByEmail(String email) {
         return userRepository.existsByEmail(email);
     }
 
-    public User createUser(User user) {
-        if (existsByEmail(user.getEmail())) {
-            throw new IllegalArgumentException("Пользователь с таким email уже существует");
+    @Transactional
+    public User createUser(UserDto userDto) {
+        if (existsByEmail(userDto.getEmail())) {
+            throw new IllegalArgumentException("User with this email already exists");
         }
-        user.setPasswordHash(passwordEncoder.encode(user.getPasswordHash()));
+
+        User user = User.builder()
+                .firstName(userDto.getFirstName())
+                .lastName(userDto.getLastName())
+                .email(userDto.getEmail())
+                .passwordHash(passwordEncoder.encode(userDto.getPassword()))
+                .role(userDto.getRole())
+                .phone(userDto.getPhone())
+                .build();
+
         return userRepository.save(user);
+    }
+
+    @Transactional
+    public User updateUser(Long id, UserDto userDto) {
+        User existingUser = findById(id);
+
+        // Check email uniqueness if email changed
+        if (!existingUser.getEmail().equals(userDto.getEmail()) && existsByEmail(userDto.getEmail())) {
+            throw new IllegalArgumentException("User with this email already exists");
+        }
+
+        existingUser.setFirstName(userDto.getFirstName());
+        existingUser.setLastName(userDto.getLastName());
+        existingUser.setEmail(userDto.getEmail());
+        existingUser.setRole(userDto.getRole());
+        existingUser.setPhone(userDto.getPhone());
+
+        // Update password if provided
+        if (userDto.getPassword() != null && !userDto.getPassword().isEmpty()) {
+            existingUser.setPasswordHash(passwordEncoder.encode(userDto.getPassword()));
+        }
+
+        return userRepository.save(existingUser);
+    }
+
+    @Transactional
+    public void deleteUser(Long id) {
+        if (!userRepository.existsById(id)) {
+            throw new IllegalArgumentException("User with id '" + id + "' not found");
+        }
+        userRepository.deleteById(id);
+    }
+
+    @Transactional(readOnly = true)
+    public List<User> findAll() {
+        return userRepository.findAll();
+    }
+
+    /**
+     * Create user and return DTO
+     */
+    @Transactional
+    public UserResponseDto createUserDto(UserDto userDto) {
+        User user = createUser(userDto);
+        return toDto(user);
+    }
+
+    /**
+     * Update user and return DTO
+     */
+    @Transactional
+    public UserResponseDto updateUserDto(Long id, UserDto userDto) {
+        User user = updateUser(id, userDto);
+        return toDto(user);
+    }
+
+    /**
+     * Get user by ID as DTO
+     */
+    @Transactional(readOnly = true)
+    public UserResponseDto findByIdDto(Long id) {
+        User user = findById(id);
+        return toDto(user);
+    }
+
+    /**
+     * Get all users as DTOs
+     */
+    @Transactional(readOnly = true)
+    public List<UserResponseDto> findAllDto() {
+        return userRepository.findAll().stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Map User entity to UserResponseDto
+     */
+    private UserResponseDto toDto(User user) {
+        return UserResponseDto.builder()
+                .id(user.getId())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .email(user.getEmail())
+                .role(user.getRole())
+                .phone(user.getPhone())
+                .createdAt(user.getCreatedAt())
+                .updatedAt(user.getUpdatedAt())
+                .build();
     }
 }

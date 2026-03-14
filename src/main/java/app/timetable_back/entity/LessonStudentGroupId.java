@@ -11,7 +11,7 @@ import java.util.Objects;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class LessonGroupId implements Serializable {
+public class LessonStudentGroupId implements Serializable {
 
     @Column(name = "lesson_id")
     private Long lessonId;
@@ -23,7 +23,7 @@ public class LessonGroupId implements Serializable {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        LessonGroupId that = (LessonGroupId) o;
+        LessonStudentGroupId that = (LessonStudentGroupId) o;
         return Objects.equals(lessonId, that.lessonId) &&
                Objects.equals(groupId, that.groupId);
     }

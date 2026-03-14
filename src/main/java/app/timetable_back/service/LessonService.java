@@ -1,15 +1,16 @@
 package app.timetable_back.service;
 
-import app.timetable_back.entity.Lesson;
-import app.timetable_back.entity.LessonGroup;
-import app.timetable_back.entity.LessonGroupId;
-import app.timetable_back.repository.LessonGroupRepository;
-import app.timetable_back.repository.LessonRepository;
+import app.timetable_back.dto.LessonDto;
+import app.timetable_back.dto.LessonResponseDto;
+import app.timetable_back.entity.*;
+import app.timetable_back.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -17,118 +18,272 @@ import java.util.List;
 public class LessonService {
 
     private final LessonRepository lessonRepository;
-    private final LessonGroupRepository lessonGroupRepository;
+    private final LessonStudentGroupRepository lessonStudentGroupRepository;
+    private final GroupRepository groupRepository;
+    private final RoomRepository roomRepository;
+    private final SubjectRepository subjectRepository;
+    private final UserRepository userRepository;
     private final ScheduleValidationService validationService;
 
-    public Lesson createLesson(Lesson lesson, List<Long> groupIds) {
-        // Проверка: teacher_id должен быть преподавателем
-        if (lesson.getTeacher() != null && lesson.getTeacher().getId() != null) {
-            validationService.validateTeacherRole(lesson.getTeacher().getId());
+    public Lesson createLesson(LessonDto lessonDto) {
+        // Validate end time is after start time
+        if (lessonDto.getEndAt().isBefore(lessonDto.getStartAt()) ||
+            lessonDto.getEndAt().isEqual(lessonDto.getStartAt())) {
+            throw new IllegalArgumentException("End time must be after start time");
         }
 
-        // Проверка: вместимость аудитории
-        if (lesson.getRoom() != null && lesson.getRoom().getId() != null && groupIds != null) {
+        // Build lesson from DTO
+        Lesson.LessonBuilder builder = Lesson.builder()
+                .startAt(lessonDto.getStartAt())
+                .endAt(lessonDto.getEndAt())
+                .isOverride(lessonDto.getIsOverride())
+                .isCancelled(lessonDto.getIsCancelled())
+                .ruleType(lessonDto.getRuleType());
+
+        // Set room if provided
+        if (lessonDto.getRoomId() != null) {
+            Room room = roomRepository.findById(lessonDto.getRoomId())
+                    .orElseThrow(() -> new IllegalArgumentException("Room with id '" + lessonDto.getRoomId() + "' not found"));
+            builder.room(room);
+        }
+
+        // Set subject if provided
+        if (lessonDto.getSubjectId() != null) {
+            Subject subject = subjectRepository.findById(lessonDto.getSubjectId())
+                    .orElseThrow(() -> new IllegalArgumentException("Subject with id '" + lessonDto.getSubjectId() + "' not found"));
+            builder.subject(subject);
+        }
+
+        // Set teacher if provided
+        if (lessonDto.getTeacherId() != null) {
+            User teacher = userRepository.findById(lessonDto.getTeacherId())
+                    .orElseThrow(() -> new IllegalArgumentException("User with id '" + lessonDto.getTeacherId() + "' not found"));
+
+            // Validate teacher role
+            validationService.validateTeacherRole(teacher.getId());
+            builder.teacher(teacher);
+        }
+
+        Lesson lesson = builder.build();
+
+        // Validate room capacity if groups are provided
+        if (lessonDto.getGroupIds() != null && !lessonDto.getGroupIds().isEmpty() && lesson.getRoom() != null) {
             if (!validationService.isRoomCapacitySufficientForGroups(
-                    lesson.getRoom().getId(), groupIds)) {
+                    lesson.getRoom().getId(), lessonDto.getGroupIds())) {
                 throw new IllegalArgumentException(
-                    "Вместимость аудитории недостаточна для указанного количества студентов"
+                    "Room capacity is insufficient for the specified number of students"
                 );
             }
         }
 
+        // Save lesson first
         Lesson savedLesson = lessonRepository.save(lesson);
 
-        // Связываем с группами
-        if (groupIds != null) {
-            for (Long groupId : groupIds) {
-                // Проверка на конфликт по группе
+        // Create lesson-group associations
+        if (lessonDto.getGroupIds() != null && !lessonDto.getGroupIds().isEmpty()) {
+            for (Long groupId : lessonDto.getGroupIds()) {
+                StudentGroup group = groupRepository.findById(groupId)
+                        .orElseThrow(() -> new IllegalArgumentException("Group with id '" + groupId + "' not found"));
+
+                // Check for group time conflict
                 if (validationService.hasGroupConflict(
                         groupId,
                         savedLesson.getStartAt(),
                         savedLesson.getEndAt())) {
                     throw new IllegalArgumentException(
-                        "Обнаружен конфликт по времени для группы " + groupId
+                        "Group schedule conflict detected for group " + groupId
                     );
                 }
 
-                LessonGroupId id = new LessonGroupId(savedLesson.getId(), groupId);
-                LessonGroup lessonGroup = LessonGroup.builder()
+                LessonStudentGroupId id = new LessonStudentGroupId(savedLesson.getId(), groupId);
+                LessonStudentGroup lessonStudentGroup = LessonStudentGroup.builder()
                         .id(id)
                         .lesson(savedLesson)
+                        .group(group)
                         .build();
-                lessonGroupRepository.save(lessonGroup);
+                lessonStudentGroupRepository.save(lessonStudentGroup);
             }
         }
 
         return savedLesson;
     }
 
-    // Обновляет существующее занятие с проверками
-    public Lesson updateLesson(Long lessonId, Lesson updatedLesson, List<Long> groupIds) {
+    public Lesson updateLesson(Long lessonId, LessonDto lessonDto) {
         Lesson existingLesson = lessonRepository.findById(lessonId)
-                .orElseThrow(() -> new IllegalArgumentException("Занятие с ID " + lessonId + " не найдено"));
+                .orElseThrow(() -> new IllegalArgumentException("Lesson with id '" + lessonId + "' not found"));
 
-        // Проверка: teacher_id должен быть преподавателем
-        if (updatedLesson.getTeacher() != null && updatedLesson.getTeacher().getId() != null) {
-            validationService.validateTeacherRole(updatedLesson.getTeacher().getId());
+        // Validate end time is after start time
+        if (lessonDto.getEndAt().isBefore(lessonDto.getStartAt()) ||
+            lessonDto.getEndAt().isEqual(lessonDto.getStartAt())) {
+            throw new IllegalArgumentException("End time must be after start time");
+        }
+        existingLesson.setStartAt(lessonDto.getStartAt());
+        existingLesson.setEndAt(lessonDto.getEndAt());
+        existingLesson.setIsOverride(lessonDto.getIsOverride());
+        existingLesson.setIsCancelled(lessonDto.getIsCancelled());
+        existingLesson.setRuleType(lessonDto.getRuleType());
+
+        // Update room
+        if (lessonDto.getRoomId() != null) {
+            Room room = roomRepository.findById(lessonDto.getRoomId())
+                    .orElseThrow(() -> new IllegalArgumentException("Room with id '" + lessonDto.getRoomId() + "' not found"));
+            existingLesson.setRoom(room);
         }
 
-        // Проверка: вместимость аудитории
-        if (updatedLesson.getRoom() != null && updatedLesson.getRoom().getId() != null && groupIds != null) {
-            if (!validationService.isRoomCapacitySufficientForGroups(
-                    updatedLesson.getRoom().getId(), groupIds)) {
-                throw new IllegalArgumentException(
-                    "Вместимость аудитории недостаточна для указанного количества студентов"
-                );
-            }
+        // Update subject
+        if (lessonDto.getSubjectId() != null) {
+            Subject subject = subjectRepository.findById(lessonDto.getSubjectId())
+                    .orElseThrow(() -> new IllegalArgumentException("Subject with id '" + lessonDto.getSubjectId() + "' not found"));
+            existingLesson.setSubject(subject);
         }
 
-        // Обновляем поля
-        existingLesson.setStartAt(updatedLesson.getStartAt());
-        existingLesson.setEndAt(updatedLesson.getEndAt());
-        existingLesson.setRoom(updatedLesson.getRoom());
-        existingLesson.setSubject(updatedLesson.getSubject());
-        existingLesson.setTeacher(updatedLesson.getTeacher());
-        existingLesson.setRecurrence(updatedLesson.getRecurrence());
-        existingLesson.setIsOverride(updatedLesson.getIsOverride());
-        existingLesson.setIsCancelled(updatedLesson.getIsCancelled());
+        // Update teacher
+        if (lessonDto.getTeacherId() != null) {
+            User teacher = userRepository.findById(lessonDto.getTeacherId())
+                    .orElseThrow(() -> new IllegalArgumentException("User with id '" + lessonDto.getTeacherId() + "' not found"));
+            validationService.validateTeacherRole(teacher.getId());
+            existingLesson.setTeacher(teacher);
+        }
 
         Lesson savedLesson = lessonRepository.save(existingLesson);
 
-        // Обновляем связи с группами
-        if (groupIds != null) {
-            // Удаляем старые связи
-            lessonGroupRepository.deleteById(new LessonGroupId(lessonId, null));
+        // Update lesson-student-group associations
+        if (lessonDto.getGroupIds() != null) {
+            // Remove old associations
+            lessonStudentGroupRepository.deleteAll(existingLesson.getLessonStudentGroups());
 
-            for (Long groupId : groupIds) {
-                // Проверка на конфликт по группе (исключая текущее занятие)
+            for (Long groupId : lessonDto.getGroupIds()) {
+                StudentGroup group = groupRepository.findById(groupId)
+                        .orElseThrow(() -> new IllegalArgumentException("Group with id '" + groupId + "' not found"));
+
                 if (validationService.hasGroupConflict(
                         groupId,
                         savedLesson.getStartAt(),
                         savedLesson.getEndAt(),
                         lessonId)) {
                     throw new IllegalArgumentException(
-                        "Обнаружен конфликт по времени для группы " + groupId
+                        "Group schedule conflict detected for group " + groupId
                     );
                 }
 
-                LessonGroupId id = new LessonGroupId(savedLesson.getId(), groupId);
-                LessonGroup lessonGroup = LessonGroup.builder()
+                LessonStudentGroupId id = new LessonStudentGroupId(savedLesson.getId(), groupId);
+                LessonStudentGroup lessonStudentGroup = LessonStudentGroup.builder()
                         .id(id)
                         .lesson(savedLesson)
+                        .group(group)
                         .build();
-                lessonGroupRepository.save(lessonGroup);
+                lessonStudentGroupRepository.save(lessonStudentGroup);
             }
         }
 
         return savedLesson;
     }
 
-    // Удаляет занятие по ID
     public void deleteLesson(Long lessonId) {
         if (!lessonRepository.existsById(lessonId)) {
-            throw new IllegalArgumentException("Занятие с ID " + lessonId + " не найдено");
+            throw new IllegalArgumentException("Lesson with id '" + lessonId + "' not found");
         }
         lessonRepository.deleteById(lessonId);
+    }
+
+    public Lesson findById(Long lessonId) {
+        return lessonRepository.findByIdWithDetails(lessonId)
+                .orElseThrow(() -> new IllegalArgumentException("Lesson with id '" + lessonId + "' not found"));
+    }
+
+    public List<Lesson> findAll() {
+        return lessonRepository.findAllWithDetails();
+    }
+
+    /**
+     * Create lesson and return DTO
+     */
+    public LessonResponseDto createLessonDto(LessonDto lessonDto) {
+        Lesson lesson = createLesson(lessonDto);
+        return toDto(lesson);
+    }
+
+    /**
+     * Update lesson and return DTO
+     */
+    public LessonResponseDto updateLessonDto(Long lessonId, LessonDto lessonDto) {
+        Lesson lesson = updateLesson(lessonId, lessonDto);
+        return toDto(lesson);
+    }
+
+    /**
+     * Get all lessons as DTOs
+     */
+    @Transactional(readOnly = true)
+    public List<LessonResponseDto> findAllDto() {
+        return lessonRepository.findAllWithDetails().stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get lesson by ID as DTO
+     */
+    @Transactional(readOnly = true)
+    public LessonResponseDto findByIdDto(Long lessonId) {
+        Lesson lesson = lessonRepository.findByIdWithDetails(lessonId)
+                .orElseThrow(() -> new IllegalArgumentException("Lesson with id '" + lessonId + "' not found"));
+        return toDto(lesson);
+    }
+
+    /**
+     * Map Lesson entity to LessonResponseDto
+     */
+    private LessonResponseDto toDto(Lesson lesson) {
+        List<Long> groupIds = lesson.getLessonStudentGroups() != null
+                ? lesson.getLessonStudentGroups().stream()
+                    .map(lsg -> lsg.getGroup().getId())
+                    .collect(Collectors.toList())
+                : new ArrayList<>();
+
+        return LessonResponseDto.builder()
+                .id(lesson.getId())
+                .startAt(lesson.getStartAt())
+                .endAt(lesson.getEndAt())
+                .ruleType(lesson.getRuleType())
+                .isOverride(lesson.getIsOverride())
+                .isCancelled(lesson.getIsCancelled())
+                .createdAt(lesson.getCreatedAt() != null ? lesson.getCreatedAt().toLocalDateTime() : null)
+                .updatedAt(lesson.getUpdatedAt() != null ? lesson.getUpdatedAt().toLocalDateTime() : null)
+                .room(mapRoom(lesson.getRoom()))
+                .subject(mapSubject(lesson.getSubject()))
+                .teacher(mapTeacher(lesson.getTeacher()))
+                .groupIds(groupIds)
+                .build();
+    }
+
+    private LessonResponseDto.RoomInfo mapRoom(Room room) {
+        if (room == null) return null;
+        return LessonResponseDto.RoomInfo.builder()
+                .id(room.getId())
+                .roomNumber(room.getRoomNumber())
+                .building(room.getBuilding())
+                .capacity(room.getCapacity())
+                .build();
+    }
+
+    private LessonResponseDto.SubjectInfo mapSubject(Subject subject) {
+        if (subject == null) return null;
+        return LessonResponseDto.SubjectInfo.builder()
+                .id(subject.getId())
+                .name(subject.getName())
+                .code(subject.getCode())
+                .faculty(subject.getFaculty())
+                .build();
+    }
+
+    private LessonResponseDto.TeacherInfo mapTeacher(User teacher) {
+        if (teacher == null) return null;
+        return LessonResponseDto.TeacherInfo.builder()
+                .id(teacher.getId())
+                .firstName(teacher.getFirstName())
+                .lastName(teacher.getLastName())
+                .email(teacher.getEmail())
+                .build();
     }
 }

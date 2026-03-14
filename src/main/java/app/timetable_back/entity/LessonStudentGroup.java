@@ -7,16 +7,16 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.OffsetDateTime;
 
 @Entity
-@Table(name = "lesson_groups")
+@Table(name = "lesson_student_groups")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class LessonGroup {
+public class LessonStudentGroup {
 
     @EmbeddedId
-    private LessonGroupId id;
+    private LessonStudentGroupId id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @MapsId("lessonId")
@@ -26,7 +26,7 @@ public class LessonGroup {
     @ManyToOne(fetch = FetchType.LAZY)
     @MapsId("groupId")
     @JoinColumn(name = "group_id")
-    private Group group;
+    private StudentGroup group;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

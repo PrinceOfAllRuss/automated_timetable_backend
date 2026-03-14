@@ -8,6 +8,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "lessons")
@@ -43,9 +45,9 @@ public class Lesson {
     @JoinColumn(name = "teacher_id")
     private User teacher;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "recurrence_id")
-    private LessonRecurrence recurrence;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "rule_type")
+    private RecurrenceRuleType ruleType;
 
     @Column(name = "is_override")
     @Builder.Default
@@ -54,6 +56,10 @@ public class Lesson {
     @Column(name = "is_cancelled")
     @Builder.Default
     private Boolean isCancelled = false;
+
+    @OneToMany(mappedBy = "lesson", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<LessonStudentGroup> lessonStudentGroups = new ArrayList<>();
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

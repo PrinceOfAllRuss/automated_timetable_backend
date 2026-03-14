@@ -14,7 +14,9 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class RegisterRequest {
+public class UserDto {
+
+    private Long id;
 
     @NotBlank(message = "First name is required")
     @Size(max = 100, message = "First name must be less than 100 characters")
@@ -30,7 +32,6 @@ public class RegisterRequest {
     private String email;
 
     @NotBlank(message = "Password is required")
-    @Size(min = 4, message = "Password must be at least 4 characters")
     private String password;
 
     @NotNull(message = "Role is required")

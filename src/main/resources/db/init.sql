@@ -4,20 +4,17 @@
 -- ============================================
 
 -- Drop tables in reverse order (due to foreign keys)
-DROP TABLE IF EXISTS lesson_groups CASCADE;
+DROP TABLE IF EXISTS lesson_student_groups CASCADE;
 DROP TABLE IF EXISTS day_comments CASCADE;
 DROP TABLE IF EXISTS lessons CASCADE;
-DROP TABLE IF EXISTS lesson_recurrence CASCADE;
-DROP TABLE IF EXISTS groups CASCADE;
+DROP TABLE IF EXISTS student_groups CASCADE;
 DROP TABLE IF EXISTS rooms CASCADE;
 DROP TABLE IF EXISTS subjects CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
 -- Drop triggers if exist
 DROP TRIGGER IF EXISTS trg_check_teacher_role ON lessons;
-DROP TRIGGER IF EXISTS trg_check_recurrence_creator ON lesson_recurrence;
 DROP FUNCTION IF EXISTS check_teacher_role();
-DROP FUNCTION IF EXISTS check_recurrence_creator();
 DROP FUNCTION IF EXISTS has_group_conflict(BIGINT, TIMESTAMP, TIMESTAMP, BIGINT);
 DROP FUNCTION IF EXISTS is_room_capacity_sufficient(BIGINT, BIGINT);
 
@@ -37,9 +34,9 @@ CREATE TABLE users (
 );
 
 -- ============================================
--- TABLE: groups
+-- TABLE: student_groups
 -- ============================================
-CREATE TABLE groups (
+CREATE TABLE student_groups (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     course_year INTEGER NOT NULL CHECK (course_year >= 1 AND course_year <= 6),
@@ -74,18 +71,6 @@ CREATE TABLE rooms (
 );
 
 -- ============================================
--- TABLE: lesson_recurrence
--- ============================================
-CREATE TABLE lesson_recurrence (
-    id BIGSERIAL PRIMARY KEY,
-    rule_type VARCHAR(20) NOT NULL,
-    semester_start DATE NOT NULL,
-    semester_end DATE NOT NULL,
-    created_by BIGINT REFERENCES users(id),
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
--- ============================================
 -- TABLE: lessons
 -- ============================================
 CREATE TABLE lessons (
@@ -95,7 +80,7 @@ CREATE TABLE lessons (
     room_id BIGINT REFERENCES rooms(id),
     subject_id BIGINT REFERENCES subjects(id),
     teacher_id BIGINT REFERENCES users(id),
-    recurrence_id BIGINT REFERENCES lesson_recurrence(id),
+    rule_type VARCHAR(20),
     is_override BOOLEAN DEFAULT FALSE,
     is_cancelled BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
@@ -116,11 +101,11 @@ CREATE TABLE day_comments (
 );
 
 -- ============================================
--- TABLE: lesson_groups (composite primary key)
+-- TABLE: lesson_student_groups (composite primary key)
 -- ============================================
-CREATE TABLE lesson_groups (
+CREATE TABLE lesson_student_groups (
     lesson_id BIGINT NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
-    group_id BIGINT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    group_id BIGINT NOT NULL REFERENCES student_groups(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (lesson_id, group_id)
 );
@@ -133,8 +118,8 @@ CREATE TABLE lesson_groups (
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_role ON users(role);
 
--- Indexes for groups
-CREATE INDEX idx_groups_name ON groups(name);
+-- Indexes for student_groups
+CREATE INDEX idx_student_groups_name ON student_groups(name);
 
 -- Indexes for subjects
 CREATE INDEX idx_subjects_code ON subjects(code);
@@ -143,19 +128,15 @@ CREATE INDEX idx_subjects_code ON subjects(code);
 CREATE INDEX idx_rooms_number ON rooms(room_number);
 CREATE UNIQUE INDEX idx_rooms_unique ON rooms(room_number, building);
 
--- Indexes for lesson_recurrence
-CREATE INDEX idx_recurrence_dates ON lesson_recurrence(semester_start, semester_end);
-
 -- Indexes for lessons
 CREATE INDEX idx_lessons_time ON lessons(start_at, end_at);
 CREATE INDEX idx_lessons_room ON lessons(room_id);
 CREATE INDEX idx_lessons_teacher ON lessons(teacher_id);
-CREATE INDEX idx_lessons_recurrence ON lessons(recurrence_id);
 CREATE INDEX idx_lessons_date ON lessons((start_at::date));
 
--- Indexes for lesson_groups
-CREATE INDEX idx_lesson_groups_group ON lesson_groups(group_id);
-CREATE INDEX idx_lesson_groups_lesson ON lesson_groups(lesson_id);
+-- Indexes for lesson_student_groups
+CREATE INDEX idx_lesson_student_groups_group ON lesson_student_groups(group_id);
+CREATE INDEX idx_lesson_student_groups_lesson ON lesson_student_groups(lesson_id);
 
 -- Indexes for day_comments
 CREATE INDEX idx_day_comments_date ON day_comments(date);
@@ -214,31 +195,6 @@ CREATE CONSTRAINT TRIGGER trg_check_teacher_role
     FOR EACH ROW
     EXECUTE FUNCTION check_teacher_role();
 
--- Function to check created_by in lesson_recurrence
-CREATE OR REPLACE FUNCTION check_recurrence_creator()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.created_by IS NOT NULL THEN
-        IF NOT EXISTS (SELECT 1 FROM users WHERE id = NEW.created_by) THEN
-            RAISE EXCEPTION 'User created_by with ID % does not exist', NEW.created_by;
-        END IF;
-    END IF;
-
-    IF NEW.semester_end < NEW.semester_start THEN
-        RAISE EXCEPTION 'semester_end (%) cannot be less than semester_start (%)',
-            NEW.semester_end, NEW.semester_start;
-    END IF;
-
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE CONSTRAINT TRIGGER trg_check_recurrence_creator
-    AFTER INSERT OR UPDATE ON lesson_recurrence
-    DEFERRABLE INITIALLY IMMEDIATE
-    FOR EACH ROW
-    EXECUTE FUNCTION check_recurrence_creator();
-
 -- Function to check group conflict
 CREATE OR REPLACE FUNCTION has_group_conflict(
     p_group_id BIGINT,
@@ -251,7 +207,7 @@ DECLARE
     conflict_count INTEGER;
 BEGIN
     SELECT COUNT(*) INTO conflict_count
-    FROM lesson_groups lg
+    FROM lesson_student_groups lg
     JOIN lessons l ON lg.lesson_id = l.id
     WHERE lg.group_id = p_group_id
       AND l.is_cancelled = FALSE
@@ -274,8 +230,8 @@ DECLARE
     room_capacity INTEGER;
 BEGIN
     SELECT COALESCE(SUM(g.student_count), 0) INTO total_students
-    FROM lesson_groups lg
-    JOIN groups g ON lg.group_id = g.id
+    FROM lesson_student_groups lg
+    JOIN student_groups g ON lg.group_id = g.id
     WHERE lg.lesson_id = p_lesson_id;
 
     SELECT capacity INTO room_capacity
