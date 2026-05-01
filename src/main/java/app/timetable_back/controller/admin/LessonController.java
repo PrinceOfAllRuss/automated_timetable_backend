@@ -1,7 +1,9 @@
 package app.timetable_back.controller.admin;
 
 import app.timetable_back.dto.LessonDto;
+import app.timetable_back.dto.LessonListViewDto;
 import app.timetable_back.dto.LessonResponseDto;
+import app.timetable_back.dto.PageResponse;
 import app.timetable_back.service.LessonService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -92,5 +94,19 @@ public class LessonController {
     })
     public ResponseEntity<List<LessonResponseDto>> getAllLessons() {
         return ResponseEntity.ok(lessonService.findAllDto());
+    }
+
+    @GetMapping("/lessons/list")
+    @Operation(summary = "Get paginated lessons list", description = "Получение пагинированного списка занятий (без id, createdAt, updatedAt)")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Lessons found",
+                    content = @Content(schema = @Schema(implementation = PageResponse.class)))
+    })
+    public ResponseEntity<PageResponse<LessonListViewDto>> getLessonsList(
+            @Parameter(description = "Номер страницы (начиная с 0)", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Размер страницы", example = "20")
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(lessonService.findAllListView(page, size));
     }
 }

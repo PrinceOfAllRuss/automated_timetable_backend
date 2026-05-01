@@ -1,10 +1,15 @@
 package app.timetable_back.service;
 
 import app.timetable_back.dto.DayCommentDto;
+import app.timetable_back.dto.DayCommentListViewDto;
 import app.timetable_back.dto.DayCommentResponseDto;
+import app.timetable_back.dto.PageResponse;
 import app.timetable_back.entity.DayComment;
 import app.timetable_back.entity.User;
 import app.timetable_back.repository.DayCommentRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -106,6 +111,27 @@ public class DayCommentService {
     }
 
     /**
+     * Get paginated day comments as ListView DTOs (без id, createdAt)
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<DayCommentListViewDto> findAllListView(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<DayComment> commentPage = dayCommentRepository.findAll(pageable);
+
+        List<DayCommentListViewDto> content = commentPage.getContent().stream()
+                .map(this::toListViewDto)
+                .collect(Collectors.toList());
+
+        return PageResponse.<DayCommentListViewDto>builder()
+                .content(content)
+                .page(page)
+                .size(size)
+                .totalElements(commentPage.getTotalElements())
+                .totalPages(commentPage.getTotalPages())
+                .build();
+    }
+
+    /**
      * Map DayComment entity to DayCommentResponseDto
      */
     private DayCommentResponseDto toDto(DayComment dayComment) {
@@ -127,6 +153,28 @@ public class DayCommentService {
                 .commentText(dayComment.getCommentText())
                 .isDeleted(dayComment.getIsDeleted())
                 .createdAt(dayComment.getCreatedAt())
+                .build();
+    }
+
+    /**
+     * Map DayComment entity to DayCommentListViewDto (без id, createdAt)
+     */
+    private DayCommentListViewDto toListViewDto(DayComment dayComment) {
+        DayCommentListViewDto.UserInfo userInfo = null;
+        if (dayComment.getUser() != null) {
+            User user = dayComment.getUser();
+            userInfo = DayCommentListViewDto.UserInfo.builder()
+                    .firstName(user.getFirstName())
+                    .lastName(user.getLastName())
+                    .email(user.getEmail())
+                    .build();
+        }
+
+        return DayCommentListViewDto.builder()
+                .date(dayComment.getDate())
+                .user(userInfo)
+                .commentText(dayComment.getCommentText())
+                .isDeleted(dayComment.getIsDeleted())
                 .build();
     }
 }

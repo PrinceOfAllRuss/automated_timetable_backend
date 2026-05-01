@@ -1,9 +1,14 @@
 package app.timetable_back.service;
 
+import app.timetable_back.dto.PageResponse;
 import app.timetable_back.dto.SubjectDto;
+import app.timetable_back.dto.SubjectListViewDto;
 import app.timetable_back.dto.SubjectResponseDto;
 import app.timetable_back.entity.Subject;
 import app.timetable_back.repository.SubjectRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -100,6 +105,27 @@ public class SubjectService {
     }
 
     /**
+     * Get paginated subjects as ListView DTOs (без id, createdAt, updatedAt)
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<SubjectListViewDto> findAllListView(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Subject> subjectPage = subjectRepository.findAll(pageable);
+
+        List<SubjectListViewDto> content = subjectPage.getContent().stream()
+                .map(this::toListViewDto)
+                .collect(Collectors.toList());
+
+        return PageResponse.<SubjectListViewDto>builder()
+                .content(content)
+                .page(page)
+                .size(size)
+                .totalElements(subjectPage.getTotalElements())
+                .totalPages(subjectPage.getTotalPages())
+                .build();
+    }
+
+    /**
      * Map Subject entity to SubjectResponseDto
      */
     private SubjectResponseDto toDto(Subject subject) {
@@ -111,6 +137,18 @@ public class SubjectService {
                 .description(subject.getDescription())
                 .createdAt(subject.getCreatedAt())
                 .updatedAt(subject.getUpdatedAt())
+                .build();
+    }
+
+    /**
+     * Map Subject entity to SubjectListViewDto (без id, createdAt, updatedAt)
+     */
+    private SubjectListViewDto toListViewDto(Subject subject) {
+        return SubjectListViewDto.builder()
+                .name(subject.getName())
+                .code(subject.getCode())
+                .faculty(subject.getFaculty())
+                .description(subject.getDescription())
                 .build();
     }
 }

@@ -1,6 +1,8 @@
 package app.timetable_back.controller.admin;
 
+import app.timetable_back.dto.PageResponse;
 import app.timetable_back.dto.SubjectDto;
+import app.timetable_back.dto.SubjectListViewDto;
 import app.timetable_back.dto.SubjectResponseDto;
 import app.timetable_back.service.SubjectService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -94,5 +96,20 @@ public class SubjectController {
     public ResponseEntity<List<SubjectResponseDto>> getAllSubjects() {
         List<SubjectResponseDto> subjects = subjectService.findAllDto();
         return ResponseEntity.ok(subjects);
+    }
+
+    @GetMapping("/subjects/list")
+    @Operation(summary = "Get paginated subjects list", description = "Получение пагинированного списка предметов (без id, createdAt, updatedAt)")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Subjects found",
+                    content = @Content(schema = @Schema(implementation = PageResponse.class)))
+    })
+    public ResponseEntity<PageResponse<SubjectListViewDto>> getSubjectsList(
+            @Parameter(description = "Номер страницы (начиная с 0)", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Размер страницы", example = "20")
+            @RequestParam(defaultValue = "20") int size) {
+        PageResponse<SubjectListViewDto> response = subjectService.findAllListView(page, size);
+        return ResponseEntity.ok(response);
     }
 }

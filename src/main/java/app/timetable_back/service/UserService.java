@@ -1,9 +1,14 @@
 package app.timetable_back.service;
 
+import app.timetable_back.dto.PageResponse;
 import app.timetable_back.dto.UserDto;
+import app.timetable_back.dto.UserListViewDto;
 import app.timetable_back.dto.UserResponseDto;
 import app.timetable_back.entity.User;
 import app.timetable_back.repository.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -132,6 +137,27 @@ public class UserService {
     }
 
     /**
+     * Get paginated users as ListView DTOs (без id, createdAt, updatedAt)
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<UserListViewDto> findAllListView(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<User> userPage = userRepository.findAll(pageable);
+
+        List<UserListViewDto> content = userPage.getContent().stream()
+                .map(this::toListViewDto)
+                .collect(Collectors.toList());
+
+        return PageResponse.<UserListViewDto>builder()
+                .content(content)
+                .page(page)
+                .size(size)
+                .totalElements(userPage.getTotalElements())
+                .totalPages(userPage.getTotalPages())
+                .build();
+    }
+
+    /**
      * Map User entity to UserResponseDto
      */
     private UserResponseDto toDto(User user) {
@@ -144,6 +170,19 @@ public class UserService {
                 .phone(user.getPhone())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
+                .build();
+    }
+
+    /**
+     * Map User entity to UserListViewDto (без id, createdAt, updatedAt)
+     */
+    private UserListViewDto toListViewDto(User user) {
+        return UserListViewDto.builder()
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .email(user.getEmail())
+                .role(user.getRole())
+                .phone(user.getPhone())
                 .build();
     }
 }

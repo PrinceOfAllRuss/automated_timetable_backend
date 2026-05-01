@@ -1,7 +1,9 @@
 package app.timetable_back.controller.admin;
 
 import app.timetable_back.dto.GroupDto;
+import app.timetable_back.dto.GroupListViewDto;
 import app.timetable_back.dto.GroupResponseDto;
+import app.timetable_back.dto.PageResponse;
 import app.timetable_back.service.GroupService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -94,5 +96,20 @@ public class GroupController {
     public ResponseEntity<List<GroupResponseDto>> getAllGroups() {
         List<GroupResponseDto> groups = groupService.findAllDto();
         return ResponseEntity.ok(groups);
+    }
+
+    @GetMapping("/groups/list")
+    @Operation(summary = "Get paginated groups list", description = "Получение пагинированного списка групп (без id, createdAt, updatedAt)")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Groups found",
+                    content = @Content(schema = @Schema(implementation = PageResponse.class)))
+    })
+    public ResponseEntity<PageResponse<GroupListViewDto>> getGroupsList(
+            @Parameter(description = "Номер страницы (начиная с 0)", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Размер страницы", example = "20")
+            @RequestParam(defaultValue = "20") int size) {
+        PageResponse<GroupListViewDto> response = groupService.findAllListView(page, size);
+        return ResponseEntity.ok(response);
     }
 }

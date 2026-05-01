@@ -1,9 +1,14 @@
 package app.timetable_back.service;
 
+import app.timetable_back.dto.PageResponse;
 import app.timetable_back.dto.RoomDto;
+import app.timetable_back.dto.RoomListViewDto;
 import app.timetable_back.dto.RoomResponseDto;
 import app.timetable_back.entity.Room;
 import app.timetable_back.repository.RoomRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -98,6 +103,27 @@ public class RoomService {
     }
 
     /**
+     * Get paginated rooms as ListView DTOs (без id, createdAt, updatedAt)
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<RoomListViewDto> findAllListView(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Room> roomPage = roomRepository.findAll(pageable);
+
+        List<RoomListViewDto> content = roomPage.getContent().stream()
+                .map(this::toListViewDto)
+                .collect(Collectors.toList());
+
+        return PageResponse.<RoomListViewDto>builder()
+                .content(content)
+                .page(page)
+                .size(size)
+                .totalElements(roomPage.getTotalElements())
+                .totalPages(roomPage.getTotalPages())
+                .build();
+    }
+
+    /**
      * Map Room entity to RoomResponseDto
      */
     private RoomResponseDto toDto(Room room) {
@@ -108,6 +134,17 @@ public class RoomService {
                 .capacity(room.getCapacity())
                 .createdAt(room.getCreatedAt())
                 .updatedAt(room.getUpdatedAt())
+                .build();
+    }
+
+    /**
+     * Map Room entity to RoomListViewDto (без id, createdAt, updatedAt)
+     */
+    private RoomListViewDto toListViewDto(Room room) {
+        return RoomListViewDto.builder()
+                .roomNumber(room.getRoomNumber())
+                .building(room.getBuilding())
+                .capacity(room.getCapacity())
                 .build();
     }
 }

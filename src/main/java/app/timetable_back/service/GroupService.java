@@ -1,9 +1,14 @@
 package app.timetable_back.service;
 
 import app.timetable_back.dto.GroupDto;
+import app.timetable_back.dto.GroupListViewDto;
 import app.timetable_back.dto.GroupResponseDto;
+import app.timetable_back.dto.PageResponse;
 import app.timetable_back.entity.StudentGroup;
 import app.timetable_back.repository.GroupRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -98,6 +103,27 @@ public class GroupService {
     }
 
     /**
+     * Get paginated groups as ListView DTOs (без id, createdAt, updatedAt)
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<GroupListViewDto> findAllListView(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<StudentGroup> groupPage = groupRepository.findAll(pageable);
+
+        List<GroupListViewDto> content = groupPage.getContent().stream()
+                .map(this::toListViewDto)
+                .collect(Collectors.toList());
+
+        return PageResponse.<GroupListViewDto>builder()
+                .content(content)
+                .page(page)
+                .size(size)
+                .totalElements(groupPage.getTotalElements())
+                .totalPages(groupPage.getTotalPages())
+                .build();
+    }
+
+    /**
      * Map StudentGroup entity to GroupResponseDto
      */
     private GroupResponseDto toDto(StudentGroup group) {
@@ -108,6 +134,17 @@ public class GroupService {
                 .studentCount(group.getStudentCount())
                 .createdAt(group.getCreatedAt())
                 .updatedAt(group.getUpdatedAt())
+                .build();
+    }
+
+    /**
+     * Map StudentGroup entity to GroupListViewDto (без id, createdAt, updatedAt)
+     */
+    private GroupListViewDto toListViewDto(StudentGroup group) {
+        return GroupListViewDto.builder()
+                .name(group.getName())
+                .courseYear(group.getCourseYear())
+                .studentCount(group.getStudentCount())
                 .build();
     }
 }

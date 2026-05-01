@@ -1,7 +1,9 @@
 package app.timetable_back.controller.admin;
 
 import app.timetable_back.dto.DayCommentDto;
+import app.timetable_back.dto.DayCommentListViewDto;
 import app.timetable_back.dto.DayCommentResponseDto;
+import app.timetable_back.dto.PageResponse;
 import app.timetable_back.service.DayCommentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -95,5 +97,20 @@ public class DayCommentController {
     public ResponseEntity<List<DayCommentResponseDto>> getAllDayComments() {
         List<DayCommentResponseDto> dayComments = dayCommentService.findAllDto();
         return ResponseEntity.ok(dayComments);
+    }
+
+    @GetMapping("/day-comments/list")
+    @Operation(summary = "Get paginated day comments list", description = "Получение пагинированного списка комментариев (без id, createdAt)")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Day comments found",
+                    content = @Content(schema = @Schema(implementation = PageResponse.class)))
+    })
+    public ResponseEntity<PageResponse<DayCommentListViewDto>> getDayCommentsList(
+            @Parameter(description = "Номер страницы (начиная с 0)", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Размер страницы", example = "20")
+            @RequestParam(defaultValue = "20") int size) {
+        PageResponse<DayCommentListViewDto> response = dayCommentService.findAllListView(page, size);
+        return ResponseEntity.ok(response);
     }
 }

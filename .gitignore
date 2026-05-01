@@ -6,6 +6,7 @@ target/
 
 BRUNO_EXAMPLES.md
 bruno/
+DOCKER.md
 
 ### STS ###
 .apt_generated

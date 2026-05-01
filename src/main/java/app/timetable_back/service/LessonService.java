@@ -1,10 +1,15 @@
 package app.timetable_back.service;
 
 import app.timetable_back.dto.LessonDto;
+import app.timetable_back.dto.LessonListViewDto;
 import app.timetable_back.dto.LessonResponseDto;
+import app.timetable_back.dto.PageResponse;
 import app.timetable_back.entity.*;
 import app.timetable_back.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -222,6 +227,28 @@ public class LessonService {
     }
 
     /**
+     * Get paginated lessons as ListView DTOs (без id, createdAt, updatedAt)
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<LessonListViewDto> findAllListView(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        // Используем стандартный findAll с Pageable
+        Page<Lesson> lessonPage = lessonRepository.findAll(pageable);
+
+        List<LessonListViewDto> content = lessonPage.getContent().stream()
+                .map(this::toListViewDto)
+                .collect(Collectors.toList());
+
+        return PageResponse.<LessonListViewDto>builder()
+                .content(content)
+                .page(page)
+                .size(size)
+                .totalElements(lessonPage.getTotalElements())
+                .totalPages(lessonPage.getTotalPages())
+                .build();
+    }
+
+    /**
      * Get lesson by ID as DTO
      */
     @Transactional(readOnly = true)
@@ -281,6 +308,56 @@ public class LessonService {
         if (teacher == null) return null;
         return LessonResponseDto.TeacherInfo.builder()
                 .id(teacher.getId())
+                .firstName(teacher.getFirstName())
+                .lastName(teacher.getLastName())
+                .email(teacher.getEmail())
+                .build();
+    }
+
+    /**
+     * Map Lesson entity to LessonListViewDto (без id, createdAt, updatedAt)
+     */
+    private LessonListViewDto toListViewDto(Lesson lesson) {
+        List<Long> groupIds = lesson.getLessonStudentGroups() != null
+                ? lesson.getLessonStudentGroups().stream()
+                    .map(lsg -> lsg.getGroup().getId())
+                    .collect(Collectors.toList())
+                : new ArrayList<>();
+
+        return LessonListViewDto.builder()
+                .startAt(lesson.getStartAt())
+                .endAt(lesson.getEndAt())
+                .ruleType(lesson.getRuleType())
+                .isOverride(lesson.getIsOverride())
+                .isCancelled(lesson.getIsCancelled())
+                .groupIds(groupIds)
+                .room(mapRoomListView(lesson.getRoom()))
+                .subject(mapSubjectListView(lesson.getSubject()))
+                .teacher(mapTeacherListView(lesson.getTeacher()))
+                .build();
+    }
+
+    private LessonListViewDto.RoomInfo mapRoomListView(Room room) {
+        if (room == null) return null;
+        return LessonListViewDto.RoomInfo.builder()
+                .roomNumber(room.getRoomNumber())
+                .building(room.getBuilding())
+                .capacity(room.getCapacity())
+                .build();
+    }
+
+    private LessonListViewDto.SubjectInfo mapSubjectListView(Subject subject) {
+        if (subject == null) return null;
+        return LessonListViewDto.SubjectInfo.builder()
+                .name(subject.getName())
+                .code(subject.getCode())
+                .faculty(subject.getFaculty())
+                .build();
+    }
+
+    private LessonListViewDto.TeacherInfo mapTeacherListView(User teacher) {
+        if (teacher == null) return null;
+        return LessonListViewDto.TeacherInfo.builder()
                 .firstName(teacher.getFirstName())
                 .lastName(teacher.getLastName())
                 .email(teacher.getEmail())

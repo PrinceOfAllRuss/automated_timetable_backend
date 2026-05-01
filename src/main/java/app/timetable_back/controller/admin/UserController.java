@@ -1,6 +1,8 @@
 package app.timetable_back.controller.admin;
 
+import app.timetable_back.dto.PageResponse;
 import app.timetable_back.dto.UserDto;
+import app.timetable_back.dto.UserListViewDto;
 import app.timetable_back.dto.UserResponseDto;
 import app.timetable_back.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -94,5 +96,20 @@ public class UserController {
     public ResponseEntity<List<UserResponseDto>> getAllUsers() {
         List<UserResponseDto> users = userService.findAllDto();
         return ResponseEntity.ok(users);
+    }
+
+    @GetMapping("/users/list")
+    @Operation(summary = "Get paginated users list", description = "Получение пагинированного списка пользователей (без id, createdAt, updatedAt)")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Users found",
+                    content = @Content(schema = @Schema(implementation = PageResponse.class)))
+    })
+    public ResponseEntity<PageResponse<UserListViewDto>> getUsersList(
+            @Parameter(description = "Номер страницы (начиная с 0)", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Размер страницы", example = "20")
+            @RequestParam(defaultValue = "20") int size) {
+        PageResponse<UserListViewDto> response = userService.findAllListView(page, size);
+        return ResponseEntity.ok(response);
     }
 }

@@ -27,7 +27,7 @@ public class OpenApiConfig {
                                 .url("http://localhost:8080")
                                 .description("Local development server"),
                         new Server()
-                                .url("http://timetable:5267")
+                                .url("https://вайба.net")
                                 .description("Remote production server")))
                 .addSecurityItem(new SecurityRequirement()
                         .addList(securitySchemeName))
