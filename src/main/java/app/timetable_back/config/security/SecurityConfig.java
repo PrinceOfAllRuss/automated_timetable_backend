@@ -75,6 +75,7 @@ public class SecurityConfig {
                         .requestMatchers("/auth/login", "/auth/refresh").permitAll()
                         // Export endpoints (accessible by ADMIN and TEACHER)
                         .requestMatchers("/export/**").hasAnyRole("ADMIN", "TEACHER")
+                        .requestMatchers("/day-comments/**").authenticated()
                         // Admin endpoints
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         // All other requests

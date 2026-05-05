@@ -1,4 +1,4 @@
-package app.timetable_back.controller.admin;
+package app.timetable_back.controller;
 
 import app.timetable_back.dto.DayCommentDto;
 import app.timetable_back.dto.DayCommentListViewDto;
@@ -14,16 +14,17 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
-@RequestMapping("/admin")
-@PreAuthorize("hasRole('ADMIN')")
+@RequestMapping("/day-comments")
 @SecurityRequirement(name = "bearerAuth")
 @Tag(name = "Day Comment Management", description = "API для управления комментариями к дням")
 public class DayCommentController {
@@ -34,7 +35,7 @@ public class DayCommentController {
         this.dayCommentService = dayCommentService;
     }
 
-    @PostMapping("/create-day-comment")
+    @PostMapping("/create")
     @Operation(summary = "Create new day comment", description = "Создание нового комментария к дню")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Day comment created successfully",
@@ -48,7 +49,7 @@ public class DayCommentController {
         return ResponseEntity.created(URI.create("/admin/day-comments/" + createdDayComment.getId())).body(createdDayComment);
     }
 
-    @PutMapping("/update-day-comment/{commentId}")
+    @PutMapping("/update/{commentId}")
     @Operation(summary = "Update day comment", description = "Обновление комментария к дню")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Day comment updated successfully",
@@ -63,7 +64,7 @@ public class DayCommentController {
         return ResponseEntity.ok(updatedDayComment);
     }
 
-    @DeleteMapping("/delete-day-comment/{commentId}")
+    @DeleteMapping("/delete/{commentId}")
     @Operation(summary = "Delete day comment", description = "Удаление комментария к дню")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Day comment deleted successfully"),
@@ -75,7 +76,7 @@ public class DayCommentController {
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/day-comment/{commentId}")
+    @GetMapping("/{commentId}")
     @Operation(summary = "Get day comment by ID", description = "Получение комментария по ID")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Day comment found",
@@ -88,7 +89,7 @@ public class DayCommentController {
         return ResponseEntity.ok(dayComment);
     }
 
-    @GetMapping("/day-comments")
+    @GetMapping("/all")
     @Operation(summary = "Get all day comments", description = "Получение списка всех комментариев")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Day comments found",
@@ -99,7 +100,7 @@ public class DayCommentController {
         return ResponseEntity.ok(dayComments);
     }
 
-    @GetMapping("/day-comments/list")
+    @GetMapping("/list")
     @Operation(summary = "Get paginated day comments list", description = "Получение пагинированного списка комментариев (без id, createdAt)")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Day comments found",
@@ -112,5 +113,24 @@ public class DayCommentController {
             @RequestParam(defaultValue = "20") int size) {
         PageResponse<DayCommentListViewDto> response = dayCommentService.findAllListView(page, size);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/by-date")
+    @Operation(
+            summary = "Get day comments by date", 
+            description = "Получение всех комментариев, привязанных к конкретной дате"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Comments found (may be empty list)",
+                    content = @Content(schema = @Schema(implementation = DayCommentResponseDto.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid date format. Expected: YYYY-MM-DD"),
+            @ApiResponse(responseCode = "403", description = "Access denied")
+    })
+    public ResponseEntity<List<DayCommentResponseDto>> getDayCommentsByDate(
+            @Parameter(description = "Дата в формате ISO (YYYY-MM-DD)", example = "2026-03-15", required = true)
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        
+        List<DayCommentResponseDto> comments = dayCommentService.findByDateDto(date);
+        return ResponseEntity.ok(comments);
     }
 }

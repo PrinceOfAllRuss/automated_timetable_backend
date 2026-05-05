@@ -13,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -176,5 +177,17 @@ public class DayCommentService {
                 .commentText(dayComment.getCommentText())
                 .isDeleted(dayComment.getIsDeleted())
                 .build();
+    }
+
+    /**
+     * Get day comments by specific date as DTOs
+     * Returns empty list if no comments found (not null)
+     */
+    @Transactional(readOnly = true)
+    public List<DayCommentResponseDto> findByDateDto(LocalDate date) {
+        List<DayComment> comments = dayCommentRepository.findByDate(date);
+        return comments.stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
     }
 }
