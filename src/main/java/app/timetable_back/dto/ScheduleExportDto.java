@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * DTO для экспорта расписания по диапазону дат
+ * DTO для экспорта расписания по диапазону дат (формат по аудиториям)
  */
 @Data
 @Builder
@@ -18,38 +18,25 @@ import java.util.Map;
 @AllArgsConstructor
 public class ScheduleExportDto {
 
-    /**
-     * Расписание по дням
-     * Ключ - дата
-     * Значение - список уроков за этот день
-     */
     private Map<LocalDate, List<LessonInfo>> scheduleByDate;
-
-    /**
-     * Список всех групп для колонок
-     */
-    private List<GroupInfo> groups;
-
-    /**
-     * Список всех временных слотов (уникальные пары время начала-окончания)
-     */
+    private List<RoomInfo> rooms;
     private List<TimeSlot> timeSlots;
 
-    /**
-     * Информация о группе
-     */
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class GroupInfo {
+    public static class RoomInfo {
         private Long id;
-        private String name;
+        private String roomNumber;
+        private String building;
+        private Integer capacity;
+        
+        public String getDisplayName() {
+            return roomNumber + " (" + capacity + " мест)";
+        }
     }
 
-    /**
-     * Временной слот (пара)
-     */
     @Data
     @Builder
     @NoArgsConstructor
@@ -59,38 +46,34 @@ public class ScheduleExportDto {
         private String sortKey;
     }
 
-    /**
-     * Информация об уроке для экспорта в Excel
-     * Один урок для одной группы
-     */
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     public static class LessonInfo {
-        private Long groupId;
-        private String groupName;
+        private Long roomId;
+        private String roomName;
         private String startTime;
         private String endTime;
         private String timeRange;
         private String subjectName;
         private String teacherName;
-        private String roomNumber;
+        private String groupsList;
         private String building;
         private Boolean isCancelled;
+        private String colorKey;
+        private List<Long> mergedRoomIds;
 
-        public String getTeacherDisplayName() {
-            return teacherName != null ? teacherName : "";
-        }
-
-        public String getRoomDisplayName() {
-            if (roomNumber == null || roomNumber.isEmpty()) {
-                return "";
+        public String getCellContent() {
+            if (subjectName == null || subjectName.isEmpty()) return "Available";
+            StringBuilder sb = new StringBuilder(subjectName);
+            if (groupsList != null && !groupsList.isEmpty()) {
+                sb.append(", Группы: ").append(groupsList);
             }
-            if (building == null || building.isEmpty()) {
-                return "ауд. " + roomNumber;
+            if (teacherName != null && !teacherName.isEmpty()) {
+                sb.append(", ").append(teacherName);
             }
-            return "ауд. " + roomNumber + " (" + building + ")";
+            return sb.toString();
         }
     }
 }

@@ -1,10 +1,11 @@
 -- ============================================
 -- TABLES AND INDEXES CREATION SCRIPT
--- For Timetable Back project
+-- For Timetable Back project (Many-to-Many Rooms)
 -- ============================================
 
 -- Drop tables in reverse order (due to foreign keys)
 DROP TABLE IF EXISTS lesson_student_groups CASCADE;
+DROP TABLE IF EXISTS lessons_room CASCADE;
 DROP TABLE IF EXISTS day_comments CASCADE;
 DROP TABLE IF EXISTS lessons CASCADE;
 DROP TABLE IF EXISTS student_groups CASCADE;
@@ -14,7 +15,9 @@ DROP TABLE IF EXISTS users CASCADE;
 
 -- Drop triggers if exist
 DROP TRIGGER IF EXISTS trg_check_teacher_role ON lessons;
+DROP TRIGGER IF EXISTS trg_validate_room_conflict ON lessons_room;
 DROP FUNCTION IF EXISTS check_teacher_role();
+DROP FUNCTION IF EXISTS validate_room_conflict();
 DROP FUNCTION IF EXISTS has_group_conflict(BIGINT, TIMESTAMP, TIMESTAMP, BIGINT);
 DROP FUNCTION IF EXISTS is_room_capacity_sufficient(BIGINT, BIGINT);
 
@@ -77,7 +80,7 @@ CREATE TABLE lessons (
     id BIGSERIAL PRIMARY KEY,
     start_at TIMESTAMP NOT NULL,
     end_at TIMESTAMP NOT NULL,
-    room_id BIGINT REFERENCES rooms(id),
+    -- room_id удалён, связь перенесена в lessons_room
     subject_id BIGINT REFERENCES subjects(id),
     teacher_id BIGINT REFERENCES users(id),
     rule_type VARCHAR(20),
@@ -86,6 +89,16 @@ CREATE TABLE lessons (
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT check_lessons_time_range CHECK (end_at > start_at)
+);
+
+-- ============================================
+-- TABLE: lessons_room (NEW: Many-to-Many)
+-- ============================================
+CREATE TABLE lessons_room (
+    lesson_id BIGINT NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+    room_id BIGINT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (lesson_id, room_id)
 );
 
 -- ============================================
@@ -130,9 +143,12 @@ CREATE UNIQUE INDEX idx_rooms_unique ON rooms(room_number, building);
 
 -- Indexes for lessons
 CREATE INDEX idx_lessons_time ON lessons(start_at, end_at);
-CREATE INDEX idx_lessons_room ON lessons(room_id);
 CREATE INDEX idx_lessons_teacher ON lessons(teacher_id);
 CREATE INDEX idx_lessons_date ON lessons((start_at::date));
+
+-- Indexes for lessons_room
+CREATE INDEX idx_lessons_room_lesson ON lessons_room(lesson_id);
+CREATE INDEX idx_lessons_room_room ON lessons_room(room_id);
 
 -- Indexes for lesson_student_groups
 CREATE INDEX idx_lesson_student_groups_group ON lesson_student_groups(group_id);
@@ -153,20 +169,17 @@ ALTER TABLE subjects ADD CONSTRAINT uk_subjects_code UNIQUE (code);
 -- ============================================
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 
--- No room and time conflicts
-ALTER TABLE lessons ADD CONSTRAINT no_room_overlap EXCLUDE USING GIST (
-    room_id WITH =,
-    tsrange(start_at, end_at) WITH &&
-) WHERE (is_cancelled = FALSE);
-
--- No teacher and time conflicts
+-- No teacher and time conflicts (оставлено без изменений)
 ALTER TABLE lessons ADD CONSTRAINT no_teacher_overlap EXCLUDE USING GIST (
     teacher_id WITH =,
     tsrange(start_at, end_at) WITH &&
 ) WHERE (is_cancelled = FALSE AND teacher_id IS NOT NULL);
 
+-- Примечание: Ограничение по аудиториям перенесено в триггер trg_validate_room_conflict,
+-- так как GIST exclusion не работает напрямую через промежуточную таблицу lessons_room.
+
 -- ============================================
--- TRIGGERS
+-- TRIGGERS & FUNCTIONS
 -- ============================================
 
 -- Function to check user role
@@ -195,7 +208,44 @@ CREATE CONSTRAINT TRIGGER trg_check_teacher_role
     FOR EACH ROW
     EXECUTE FUNCTION check_teacher_role();
 
--- Function to check group conflict
+-- Function to validate room conflicts (заменяет no_room_overlap)
+CREATE OR REPLACE FUNCTION validate_room_conflict()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_start_at TIMESTAMP;
+    v_end_at TIMESTAMP;
+    v_conflict_id BIGINT;
+BEGIN
+    -- Получаем временной интервал урока
+    SELECT start_at, end_at INTO v_start_at, v_end_at
+    FROM lessons WHERE id = NEW.lesson_id;
+
+    -- Проверяем пересечение с другими уроками в той же аудитории
+    SELECT l.id INTO v_conflict_id
+    FROM lessons_room lr
+    JOIN lessons l ON lr.lesson_id = l.id
+    WHERE lr.room_id = NEW.room_id
+      AND l.id != NEW.lesson_id
+      AND l.is_cancelled = FALSE
+      AND l.start_at < v_end_at
+      AND l.end_at > v_start_at
+    LIMIT 1;
+
+    IF FOUND THEN
+        RAISE EXCEPTION 'Room % is already occupied by lesson % during this time', NEW.room_id, v_conflict_id;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE CONSTRAINT TRIGGER trg_validate_room_conflict
+    BEFORE INSERT OR UPDATE ON lessons_room
+    DEFERRABLE INITIALLY IMMEDIATE
+    FOR EACH ROW
+    EXECUTE FUNCTION validate_room_conflict();
+
+-- Function to check group conflict (оставлена без изменений)
 CREATE OR REPLACE FUNCTION has_group_conflict(
     p_group_id BIGINT,
     p_start_at TIMESTAMP,
@@ -219,7 +269,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to check room capacity
+-- Function to check room capacity (оставлена без изменений)
 CREATE OR REPLACE FUNCTION is_room_capacity_sufficient(
     p_lesson_id BIGINT,
     p_room_id BIGINT
