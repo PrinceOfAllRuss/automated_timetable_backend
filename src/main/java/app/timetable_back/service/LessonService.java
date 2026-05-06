@@ -1,9 +1,5 @@
 package app.timetable_back.service;
-
-import app.timetable_back.dto.LessonDto;
-import app.timetable_back.dto.LessonListViewDto;
-import app.timetable_back.dto.LessonResponseDto;
-import app.timetable_back.dto.PageResponse;
+import app.timetable_back.dto.*;
 import app.timetable_back.entity.*;
 import app.timetable_back.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -12,7 +8,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -20,7 +15,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional
 public class LessonService {
-
     private final LessonRepository lessonRepository;
     private final LessonRoomRepository lessonRoomRepository;
     private final LessonStudentGroupRepository lessonStudentGroupRepository;
@@ -66,9 +60,7 @@ public class LessonService {
                 
                 if (lessonDto.getGroupIds() != null && !lessonDto.getGroupIds().isEmpty()) {
                     if (!validationService.isRoomCapacitySufficientForGroups(roomId, lessonDto.getGroupIds())) {
-                        throw new IllegalArgumentException(
-                            "Room capacity is insufficient for the specified number of students in room " + roomId
-                        );
+                        throw new IllegalArgumentException("Room capacity is insufficient for the specified number of students in room " + roomId);
                     }
                 }
 
@@ -136,9 +128,7 @@ public class LessonService {
                 
                 if (lessonDto.getGroupIds() != null && !lessonDto.getGroupIds().isEmpty()) {
                     if (!validationService.isRoomCapacitySufficientForGroups(roomId, lessonDto.getGroupIds())) {
-                        throw new IllegalArgumentException(
-                            "Room capacity is insufficient for the specified number of students in room " + roomId
-                        );
+                        throw new IllegalArgumentException("Room capacity is insufficient for the specified number of students in room " + roomId);
                     }
                 }
 
@@ -199,7 +189,7 @@ public class LessonService {
     public List<LessonResponseDto> findAllDto() {
         return lessonRepository.findAllWithDetails().stream()
                 .map(this::toDto)
-                .collect(Collectors.toList()); // ← Возвращаем List для контроллера
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
@@ -209,7 +199,7 @@ public class LessonService {
         
         List<LessonListViewDto> content = lessonPage.getContent().stream()
                 .map(this::toListViewDto)
-                .collect(Collectors.toList()); // ← Возвращаем List для PageResponse
+                .collect(Collectors.toList());
 
         return PageResponse.<LessonListViewDto>builder()
                 .content(content).page(page).size(size)
@@ -225,21 +215,52 @@ public class LessonService {
         return toDto(lesson);
     }
 
-    // --- MAPPER METHODS ---
+    // --- MAPPER METHODS (используют существующие DTO, без вложенных классов) ---
 
     private LessonResponseDto toDto(Lesson lesson) {
-        // Внутри маппинга используем Set для сбора, но в итоге конвертируем в List для DTO
         List<Long> groupIds = lesson.getLessonStudentGroups() != null
                 ? new ArrayList<>(lesson.getLessonStudentGroups().stream()
                     .map(lsg -> lsg.getGroup().getId())
                     .collect(Collectors.toSet()))
                 : new ArrayList<>();
 
-        List<LessonResponseDto.RoomInfo> rooms = lesson.getLessonRooms() != null
-                ? new ArrayList<>(lesson.getLessonRooms().stream()
-                    .map(lr -> mapRoom(lr.getRoom()))
-                    .collect(Collectors.toSet()))
-                : new ArrayList<>();
+        List<RoomResponseDto> rooms = lesson.getLessonRooms() != null
+                ? lesson.getLessonRooms().stream()
+                    .map(lr -> RoomResponseDto.builder()
+                            .id(lr.getRoom().getId())
+                            .roomNumber(lr.getRoom().getRoomNumber())
+                            .building(lr.getRoom().getBuilding())
+                            .capacity(lr.getRoom().getCapacity())
+                            .createdAt(lr.getRoom().getCreatedAt())
+                            .updatedAt(lr.getRoom().getUpdatedAt())
+                            .build())
+                    .collect(Collectors.toList())
+                : Collections.emptyList();
+
+        SubjectResponseDto subject = lesson.getSubject() != null
+                ? SubjectResponseDto.builder()
+                    .id(lesson.getSubject().getId())
+                    .name(lesson.getSubject().getName())
+                    .code(lesson.getSubject().getCode())
+                    .faculty(lesson.getSubject().getFaculty())
+                    .description(lesson.getSubject().getDescription())
+                    .createdAt(lesson.getSubject().getCreatedAt())
+                    .updatedAt(lesson.getSubject().getUpdatedAt())
+                    .build()
+                : null;
+
+        UserResponseDto teacher = lesson.getTeacher() != null
+                ? UserResponseDto.builder()
+                    .id(lesson.getTeacher().getId())
+                    .firstName(lesson.getTeacher().getFirstName())
+                    .lastName(lesson.getTeacher().getLastName())
+                    .email(lesson.getTeacher().getEmail())
+                    .role(lesson.getTeacher().getRole())
+                    .phone(lesson.getTeacher().getPhone())
+                    .createdAt(lesson.getTeacher().getCreatedAt())
+                    .updatedAt(lesson.getTeacher().getUpdatedAt())
+                    .build()
+                : null;
 
         return LessonResponseDto.builder()
                 .id(lesson.getId())
@@ -250,10 +271,10 @@ public class LessonService {
                 .isCancelled(lesson.getIsCancelled())
                 .createdAt(lesson.getCreatedAt() != null ? lesson.getCreatedAt().toLocalDateTime() : null)
                 .updatedAt(lesson.getUpdatedAt() != null ? lesson.getUpdatedAt().toLocalDateTime() : null)
-                .rooms(rooms)  // DTO ожидает List
-                .subject(mapSubject(lesson.getSubject()))
-                .teacher(mapTeacher(lesson.getTeacher()))
-                .groupIds(groupIds)  // DTO ожидает List
+                .rooms(rooms)
+                .subject(subject)
+                .teacher(teacher)
+                .groupIds(groupIds)
                 .build();
     }
 
@@ -264,11 +285,34 @@ public class LessonService {
                     .collect(Collectors.toSet()))
                 : new ArrayList<>();
 
-        List<LessonListViewDto.RoomInfo> rooms = lesson.getLessonRooms() != null
-                ? new ArrayList<>(lesson.getLessonRooms().stream()
-                    .map(lr -> mapRoomListView(lr.getRoom()))
-                    .collect(Collectors.toSet()))
-                : new ArrayList<>();
+        List<RoomListViewDto> rooms = lesson.getLessonRooms() != null
+                ? lesson.getLessonRooms().stream()
+                    .map(lr -> RoomListViewDto.builder()
+                            .roomNumber(lr.getRoom().getRoomNumber())
+                            .building(lr.getRoom().getBuilding())
+                            .capacity(lr.getRoom().getCapacity())
+                            .build())
+                    .collect(Collectors.toList())
+                : Collections.emptyList();
+
+        SubjectListViewDto subject = lesson.getSubject() != null
+                ? SubjectListViewDto.builder()
+                    .name(lesson.getSubject().getName())
+                    .code(lesson.getSubject().getCode())
+                    .faculty(lesson.getSubject().getFaculty())
+                    .description(lesson.getSubject().getDescription())
+                    .build()
+                : null;
+
+        UserListViewDto teacher = lesson.getTeacher() != null
+                ? UserListViewDto.builder()
+                    .firstName(lesson.getTeacher().getFirstName())
+                    .lastName(lesson.getTeacher().getLastName())
+                    .email(lesson.getTeacher().getEmail())
+                    .role(lesson.getTeacher().getRole())
+                    .phone(lesson.getTeacher().getPhone())
+                    .build()
+                : null;
 
         return LessonListViewDto.builder()
                 .startAt(lesson.getStartAt())
@@ -276,49 +320,10 @@ public class LessonService {
                 .ruleType(lesson.getRuleType())
                 .isOverride(lesson.getIsOverride())
                 .isCancelled(lesson.getIsCancelled())
-                .rooms(rooms)  // DTO ожидает List
-                .subject(mapSubjectListView(lesson.getSubject()))
-                .teacher(mapTeacherListView(lesson.getTeacher()))
-                .groupIds(groupIds)  // DTO ожидает List
+                .rooms(rooms)
+                .subject(subject)
+                .teacher(teacher)
+                .groupIds(groupIds)
                 .build();
-    }
-
-    // --- HELPER MAPPERS ---
-
-    private LessonResponseDto.RoomInfo mapRoom(Room room) {
-        if (room == null) return null;
-        return LessonResponseDto.RoomInfo.builder()
-                .id(room.getId()).roomNumber(room.getRoomNumber())
-                .building(room.getBuilding()).capacity(room.getCapacity()).build();
-    }
-
-    private LessonListViewDto.RoomInfo mapRoomListView(Room room) {
-        if (room == null) return null;
-        return LessonListViewDto.RoomInfo.builder()
-                .roomNumber(room.getRoomNumber()).building(room.getBuilding()).capacity(room.getCapacity()).build();
-    }
-
-    private LessonResponseDto.SubjectInfo mapSubject(Subject subject) {
-        if (subject == null) return null;
-        return LessonResponseDto.SubjectInfo.builder()
-                .id(subject.getId()).name(subject.getName()).code(subject.getCode()).faculty(subject.getFaculty()).build();
-    }
-
-    private LessonListViewDto.SubjectInfo mapSubjectListView(Subject subject) {
-        if (subject == null) return null;
-        return LessonListViewDto.SubjectInfo.builder()
-                .name(subject.getName()).code(subject.getCode()).faculty(subject.getFaculty()).build();
-    }
-
-    private LessonResponseDto.TeacherInfo mapTeacher(User teacher) {
-        if (teacher == null) return null;
-        return LessonResponseDto.TeacherInfo.builder()
-                .id(teacher.getId()).firstName(teacher.getFirstName()).lastName(teacher.getLastName()).email(teacher.getEmail()).build();
-    }
-
-    private LessonListViewDto.TeacherInfo mapTeacherListView(User teacher) {
-        if (teacher == null) return null;
-        return LessonListViewDto.TeacherInfo.builder()
-                .firstName(teacher.getFirstName()).lastName(teacher.getLastName()).email(teacher.getEmail()).build();
     }
 }

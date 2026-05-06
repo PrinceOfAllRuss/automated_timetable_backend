@@ -3,22 +3,28 @@ import app.timetable_back.dto.PageResponse;
 import app.timetable_back.dto.RoomDto;
 import app.timetable_back.dto.RoomListViewDto;
 import app.timetable_back.dto.RoomResponseDto;
+import app.timetable_back.entity.Lesson;
 import app.timetable_back.entity.Room;
+import app.timetable_back.exception.EntityInUseException;
+import app.timetable_back.repository.LessonRepository;
 import app.timetable_back.repository.RoomRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 public class RoomService {
     private final RoomRepository roomRepository;
+    private final LessonRepository lessonRepository;
 
-    public RoomService(RoomRepository roomRepository) {
+    public RoomService(RoomRepository roomRepository, LessonRepository lessonRepository) {
         this.roomRepository = roomRepository;
+        this.lessonRepository = lessonRepository;
     }
 
     @Transactional(readOnly = true)
@@ -29,12 +35,11 @@ public class RoomService {
 
     @Transactional
     public Room createRoom(RoomDto roomDto) {
-        Room room = Room.builder()
+        return roomRepository.save(Room.builder()
                 .roomNumber(roomDto.getRoomNumber())
                 .building(roomDto.getBuilding())
                 .capacity(roomDto.getCapacity())
-                .build();
-        return roomRepository.save(room);
+                .build());
     }
 
     @Transactional
@@ -51,6 +56,15 @@ public class RoomService {
         if (!roomRepository.existsById(id)) {
             throw new IllegalArgumentException("Room with id '" + id + "' not found");
         }
+
+        Pageable firstResult = PageRequest.of(0, 1);
+        
+        // Берём первый урок из списка, если он есть
+        lessonRepository.findFirstByRoomId(id, firstResult).stream().findFirst().ifPresent(lesson -> {
+            String date = lesson.getStartAt().format(DateTimeFormatter.ofPattern("dd-MM-yyyy"));
+            throw new EntityInUseException("Нельзя удалять аудиторию. Используется в уроке " + date);
+        });
+
         roomRepository.deleteById(id);
     }
 
@@ -61,20 +75,17 @@ public class RoomService {
 
     @Transactional
     public RoomResponseDto createRoomDto(RoomDto roomDto) {
-        Room room = createRoom(roomDto);
-        return toDto(room);
+        return toDto(createRoom(roomDto));
     }
 
     @Transactional
     public RoomResponseDto updateRoomDto(Long id, RoomDto roomDto) {
-        Room room = updateRoom(id, roomDto);
-        return toDto(room);
+        return toDto(updateRoom(id, roomDto));
     }
 
     @Transactional(readOnly = true)
     public RoomResponseDto findByIdDto(Long id) {
-        Room room = findById(id);
-        return toDto(room);
+        return toDto(findById(id));
     }
 
     @Transactional(readOnly = true)
@@ -85,13 +96,10 @@ public class RoomService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<RoomListViewDto> findAllListView(int page, int size, String search) {
+    public PageResponse<RoomListViewDto> findAllListView(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        String searchPattern = (search != null && !search.trim().isEmpty()) 
-                ? "%" + search.trim().toLowerCase() + "%" 
-                : null;
+        Page<Room> roomPage = roomRepository.findAll(pageable);
 
-        Page<Room> roomPage = roomRepository.findBySearchQuery(searchPattern, pageable);
         List<RoomListViewDto> content = roomPage.getContent().stream()
                 .map(this::toListViewDto)
                 .collect(Collectors.toList());
