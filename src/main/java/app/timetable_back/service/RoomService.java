@@ -3,7 +3,6 @@ import app.timetable_back.dto.PageResponse;
 import app.timetable_back.dto.RoomDto;
 import app.timetable_back.dto.RoomListViewDto;
 import app.timetable_back.dto.RoomResponseDto;
-import app.timetable_back.entity.Lesson;
 import app.timetable_back.entity.Room;
 import app.timetable_back.exception.EntityInUseException;
 import app.timetable_back.repository.LessonRepository;
@@ -34,21 +33,18 @@ public class RoomService {
     }
 
     @Transactional
-    public Room createRoom(RoomDto roomDto) {
-        return roomRepository.save(Room.builder()
-                .roomNumber(roomDto.getRoomNumber())
-                .building(roomDto.getBuilding())
-                .capacity(roomDto.getCapacity())
-                .build());
+    public Room createRoom(RoomDto dto) {
+        return roomRepository.save(Room.builder().roomNumber(dto.getRoomNumber())
+                .building(dto.getBuilding()).capacity(dto.getCapacity()).build());
     }
 
     @Transactional
-    public Room updateRoom(Long id, RoomDto roomDto) {
-        Room existingRoom = findById(id);
-        existingRoom.setRoomNumber(roomDto.getRoomNumber());
-        existingRoom.setBuilding(roomDto.getBuilding());
-        existingRoom.setCapacity(roomDto.getCapacity());
-        return roomRepository.save(existingRoom);
+    public Room updateRoom(Long id, RoomDto dto) {
+        Room existing = findById(id);
+        existing.setRoomNumber(dto.getRoomNumber());
+        existing.setBuilding(dto.getBuilding());
+        existing.setCapacity(dto.getCapacity());
+        return roomRepository.save(existing);
     }
 
     @Transactional
@@ -56,79 +52,39 @@ public class RoomService {
         if (!roomRepository.existsById(id)) {
             throw new IllegalArgumentException("Room with id '" + id + "' not found");
         }
-
         Pageable firstResult = PageRequest.of(0, 1);
-        
-        // Берём первый урок из списка, если он есть
         lessonRepository.findFirstByRoomId(id, firstResult).stream().findFirst().ifPresent(lesson -> {
             String date = lesson.getStartAt().format(DateTimeFormatter.ofPattern("dd-MM-yyyy"));
             throw new EntityInUseException("Нельзя удалять аудиторию. Используется в уроке " + date);
         });
-
         roomRepository.deleteById(id);
     }
 
-    @Transactional(readOnly = true)
-    public List<Room> findAll() {
-        return roomRepository.findAll();
-    }
-
-    @Transactional
-    public RoomResponseDto createRoomDto(RoomDto roomDto) {
-        return toDto(createRoom(roomDto));
-    }
-
-    @Transactional
-    public RoomResponseDto updateRoomDto(Long id, RoomDto roomDto) {
-        return toDto(updateRoom(id, roomDto));
-    }
+    @Transactional(readOnly = true) public List<Room> findAll() { return roomRepository.findAll(); }
+    @Transactional public RoomResponseDto createRoomDto(RoomDto dto) { return toDto(createRoom(dto)); }
+    @Transactional public RoomResponseDto updateRoomDto(Long id, RoomDto dto) { return toDto(updateRoom(id, dto)); }
+    @Transactional(readOnly = true) public RoomResponseDto findByIdDto(Long id) { return toDto(findById(id)); }
+    @Transactional(readOnly = true) public List<RoomResponseDto> findAllDto() { return roomRepository.findAll().stream().map(this::toDto).collect(Collectors.toList()); }
 
     @Transactional(readOnly = true)
-    public RoomResponseDto findByIdDto(Long id) {
-        return toDto(findById(id));
-    }
-
-    @Transactional(readOnly = true)
-    public List<RoomResponseDto> findAllDto() {
-        return roomRepository.findAll().stream()
-                .map(this::toDto)
-                .collect(Collectors.toList());
-    }
-
-    @Transactional(readOnly = true)
-    public PageResponse<RoomListViewDto> findAllListView(int page, int size) {
+    public PageResponse<RoomListViewDto> findAllListView(int page, int size, String search) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<Room> roomPage = roomRepository.findAll(pageable);
-
-        List<RoomListViewDto> content = roomPage.getContent().stream()
-                .map(this::toListViewDto)
-                .collect(Collectors.toList());
-
+        String searchPattern = (search != null && !search.trim().isEmpty())
+                ? "%" + search.trim().toLowerCase() + "%"
+                : null;
+        Page<Room> roomPage = roomRepository.findBySearchQuery(searchPattern, pageable);
+        List<RoomListViewDto> content = roomPage.getContent().stream().map(this::toListViewDto).collect(Collectors.toList());
         return PageResponse.<RoomListViewDto>builder()
-                .content(content)
-                .page(page)
-                .size(size)
-                .totalElements(roomPage.getTotalElements())
-                .totalPages(roomPage.getTotalPages())
+                .content(content).page(page).size(size)
+                .totalElements(roomPage.getTotalElements()).totalPages(roomPage.getTotalPages())
                 .build();
     }
 
-    private RoomResponseDto toDto(Room room) {
-        return RoomResponseDto.builder()
-                .id(room.getId())
-                .roomNumber(room.getRoomNumber())
-                .building(room.getBuilding())
-                .capacity(room.getCapacity())
-                .createdAt(room.getCreatedAt())
-                .updatedAt(room.getUpdatedAt())
-                .build();
+    private RoomResponseDto toDto(Room r) {
+        return RoomResponseDto.builder().id(r.getId()).roomNumber(r.getRoomNumber()).building(r.getBuilding())
+                .capacity(r.getCapacity()).createdAt(r.getCreatedAt()).updatedAt(r.getUpdatedAt()).build();
     }
-
-    private RoomListViewDto toListViewDto(Room room) {
-        return RoomListViewDto.builder()
-                .roomNumber(room.getRoomNumber())
-                .building(room.getBuilding())
-                .capacity(room.getCapacity())
-                .build();
+    private RoomListViewDto toListViewDto(Room r) {
+        return RoomListViewDto.builder().roomNumber(r.getRoomNumber()).building(r.getBuilding()).capacity(r.getCapacity()).build();
     }
 }
