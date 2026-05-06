@@ -2,6 +2,7 @@ package app.timetable_back.service;
 
 import app.timetable_back.dto.ScheduleExportDto;
 import app.timetable_back.entity.Lesson;
+import app.timetable_back.entity.LessonRoom;
 import app.timetable_back.entity.LessonStudentGroup;
 import app.timetable_back.entity.Room;
 import app.timetable_back.entity.StudentGroup;
@@ -30,9 +31,16 @@ public class ScheduleExportService {
 
         List<Lesson> lessons = lessonRepository.findByDateRange(startDateTime, endDateTime);
 
+        // 1. Собираем все аудитории из lessonRooms (новая структура)
         Set<Room> roomsSet = new LinkedHashSet<>();
         for (Lesson lesson : lessons) {
-            if (lesson.getRoom() != null) roomsSet.add(lesson.getRoom());
+            if (lesson.getLessonRooms() != null) {
+                for (LessonRoom lr : lesson.getLessonRooms()) {
+                    if (lr.getRoom() != null) {
+                        roomsSet.add(lr.getRoom());
+                    }
+                }
+            }
         }
         List<Room> sortedRooms = new ArrayList<>(roomsSet);
         sortedRooms.sort(Comparator.comparing(Room::getRoomNumber, String.CASE_INSENSITIVE_ORDER));
@@ -43,59 +51,86 @@ public class ScheduleExportService {
                         .building(r.getBuilding()).capacity(r.getCapacity()).build())
                 .collect(Collectors.toList());
 
+        // 2. Агрегируем уроки: ключ = (дата, время, аудитория) -> список групп
+        // Теперь один урок может быть в нескольких аудиториях
         Map<LessonKey, List<StudentGroup>> aggregated = new LinkedHashMap<>();
         for (Lesson lesson : lessons) {
-            if (lesson.getRoom() == null) continue;
+            if (lesson.getLessonRooms() == null || lesson.getLessonRooms().isEmpty()) continue;
+            
             LocalDate date = lesson.getStartAt().toLocalDate();
             String timeRange = formatTimeRangeOnly(lesson);
-            Long roomId = lesson.getRoom().getId();
-            LessonKey key = new LessonKey(date, timeRange, roomId);
             
-            if (lesson.getLessonStudentGroups() != null) {
-                for (LessonStudentGroup lsg : lesson.getLessonStudentGroups()) {
-                    aggregated.computeIfAbsent(key, k -> new ArrayList<>()).add(lsg.getGroup());
+            // Для каждой аудитории этого урока создаём запись
+            for (LessonRoom lr : lesson.getLessonRooms()) {
+                if (lr.getRoom() == null) continue;
+                Long roomId = lr.getRoom().getId();
+                LessonKey key = new LessonKey(date, timeRange, roomId);
+                
+                if (lesson.getLessonStudentGroups() != null) {
+                    for (LessonStudentGroup lsg : lesson.getLessonStudentGroups()) {
+                        aggregated.computeIfAbsent(key, k -> new ArrayList<>()).add(lsg.getGroup());
+                    }
                 }
             }
         }
 
+        // 3. Преобразуем в LessonInfo
         List<ScheduleExportDto.LessonInfo> lessonInfos = new ArrayList<>();
         for (Map.Entry<LessonKey, List<StudentGroup>> entry : aggregated.entrySet()) {
             LessonKey key = entry.getKey();
             List<StudentGroup> groups = entry.getValue();
             
+            // Находим исходный урок для получения деталей (предмет, преподаватель)
             Lesson sourceLesson = lessons.stream()
-                    .filter(l -> l.getRoom() != null && l.getRoom().getId().equals(key.roomId) &&
+                    .filter(l -> l.getLessonRooms() != null && 
+                                 l.getLessonRooms().stream().anyMatch(lr -> 
+                                     lr.getRoom() != null && lr.getRoom().getId().equals(key.roomId)) &&
                                  l.getStartAt().toLocalDate().equals(key.date) &&
                                  formatTimeRangeOnly(l).equals(key.timeRange))
                     .findFirst().orElse(null);
 
             if (sourceLesson == null) continue;
 
-            String groupsList = groups.stream().map(StudentGroup::getName).distinct().sorted().collect(Collectors.joining(", "));
+            String groupsList = groups.stream()
+                    .map(StudentGroup::getName)
+                    .distinct()
+                    .sorted()
+                    .collect(Collectors.joining(", "));
+
             String teacherName = sourceLesson.getTeacher() != null ? 
-                    formatTeacherName(sourceLesson.getTeacher().getFirstName(), sourceLesson.getTeacher().getLastName()) : "";
+                    formatTeacherName(sourceLesson.getTeacher().getFirstName(), 
+                                     sourceLesson.getTeacher().getLastName()) : "";
             String subjectName = sourceLesson.getSubject() != null ? sourceLesson.getSubject().getName() : "";
             String colorKey = subjectName + "|" + groupsList + "|" + teacherName;
 
+            // Находим комнату для отображения
+            Room room = sourceLesson.getLessonRooms().stream()
+                    .map(LessonRoom::getRoom)
+                    .filter(r -> r != null && r.getId().equals(key.roomId))
+                    .findFirst().orElse(null);
+
             lessonInfos.add(ScheduleExportDto.LessonInfo.builder()
                     .roomId(key.roomId)
-                    .roomName(sourceLesson.getRoom() != null ? sourceLesson.getRoom().getRoomNumber() : "")
+                    .roomName(room != null ? room.getRoomNumber() : "")
                     .startTime(key.date + " " + key.timeRange.split("-")[0])
                     .endTime(key.date + " " + key.timeRange.split("-")[1])
                     .timeRange(key.timeRange)
                     .subjectName(subjectName)
                     .teacherName(teacherName)
                     .groupsList(groupsList)
-                    .building(sourceLesson.getRoom() != null ? sourceLesson.getRoom().getBuilding() : "")
+                    .building(room != null ? room.getBuilding() : "")
                     .isCancelled(sourceLesson.getIsCancelled() != null ? sourceLesson.getIsCancelled() : false)
                     .colorKey(colorKey)
                     .build());
         }
 
+        // 4. Группируем по датам
         Map<LocalDate, List<ScheduleExportDto.LessonInfo>> scheduleByDate = lessonInfos.stream()
-                .collect(Collectors.groupingBy(dto -> LocalDate.parse(dto.getStartTime().substring(0, 10)), LinkedHashMap::new, Collectors.toList()));
+                .collect(Collectors.groupingBy(
+                        dto -> LocalDate.parse(dto.getStartTime().substring(0, 10)),
+                        LinkedHashMap::new, Collectors.toList()));
 
-        // ИСПРАВЛЕНИЕ: надежное удаление дубликатов timeSlots
+        // 5. Уникальные временные слоты
         List<ScheduleExportDto.TimeSlot> timeSlots = lessonInfos.stream()
                 .collect(Collectors.toMap(
                         dto -> dto.getTimeRange(),
@@ -111,6 +146,7 @@ public class ScheduleExportService {
                 .sorted(Comparator.comparing(ScheduleExportDto.TimeSlot::getSortKey))
                 .collect(Collectors.toList());
 
+        // 6. Обработка горизонтального слияния
         for (List<ScheduleExportDto.LessonInfo> dayLessons : scheduleByDate.values()) {
             detectHorizontalMerges(dayLessons, timeSlots, sortedRooms);
         }
@@ -172,15 +208,31 @@ public class ScheduleExportService {
                 .collect(Collectors.joining());
     }
 
+    // Вспомогательный класс с ручным equals/hashCode
     private static class LessonKey {
         private final LocalDate date;
         private final String timeRange;
         private final Long roomId;
-        public LessonKey(LocalDate date, String timeRange, Long roomId) { this.date = date; this.timeRange = timeRange; this.roomId = roomId; }
-        @Override public boolean equals(Object o) {
-            if (this == o) return true; if (!(o instanceof LessonKey that)) return false;
-            return Objects.equals(date, that.date) && Objects.equals(timeRange, that.timeRange) && Objects.equals(roomId, that.roomId);
+
+        public LessonKey(LocalDate date, String timeRange, Long roomId) {
+            this.date = date;
+            this.timeRange = timeRange;
+            this.roomId = roomId;
         }
-        @Override public int hashCode() { return Objects.hash(date, timeRange, roomId); }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            LessonKey that = (LessonKey) o;
+            return Objects.equals(date, that.date) &&
+                   Objects.equals(timeRange, that.timeRange) &&
+                   Objects.equals(roomId, that.roomId);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(date, timeRange, roomId);
+        }
     }
 }

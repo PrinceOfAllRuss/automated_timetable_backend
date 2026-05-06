@@ -239,9 +239,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE CONSTRAINT TRIGGER trg_validate_room_conflict
+-- ИСПРАВЛЕНО: обычный TRIGGER (не CONSTRAINT), так как BEFORE-триггеры не могут быть ограничивающими
+CREATE TRIGGER trg_validate_room_conflict
     BEFORE INSERT OR UPDATE ON lessons_room
-    DEFERRABLE INITIALLY IMMEDIATE
     FOR EACH ROW
     EXECUTE FUNCTION validate_room_conflict();
 

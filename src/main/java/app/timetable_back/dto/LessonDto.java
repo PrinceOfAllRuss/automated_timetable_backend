@@ -25,8 +25,8 @@ public class LessonDto {
     @NotNull(message = "End time is required")
     private LocalDateTime endAt;
 
-    @Positive(message = "Room ID must be positive")
-    private Long roomId;
+    // NEW: список аудиторий вместо одной
+    private List<Long> roomIds;
 
     @Positive(message = "Subject ID must be positive")
     private Long subjectId;

@@ -8,8 +8,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "lessons")
@@ -34,10 +34,6 @@ public class Lesson {
     private LocalDateTime endAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "room_id")
-    private Room room;
-
-    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subject_id")
     private Subject subject;
 
@@ -57,9 +53,15 @@ public class Lesson {
     @Builder.Default
     private Boolean isCancelled = false;
 
+    // ИЗМЕНЕНИЕ: List заменен на Set
     @OneToMany(mappedBy = "lesson", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
-    private List<LessonStudentGroup> lessonStudentGroups = new ArrayList<>();
+    private Set<LessonStudentGroup> lessonStudentGroups = new HashSet<>();
+
+    // ИЗМЕНЕНИЕ: List заменен на Set
+    @OneToMany(mappedBy = "lesson", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private Set<LessonRoom> lessonRooms = new HashSet<>();
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
