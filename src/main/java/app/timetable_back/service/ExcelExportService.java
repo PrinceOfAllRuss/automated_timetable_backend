@@ -18,8 +18,21 @@ import java.util.*;
 public class ExcelExportService {
 
     private static final String DAY_NAME_FORMAT = "EEEE, dd.MM.yyyy";
-    // Java 25: современный способ создания Locale
     private static final Locale RUSSIAN_LOCALE = Locale.of("ru", "RU");
+
+    // Настройки размеров
+    private static final short FONT_SIZE_LESSON = 14;      // Размер шрифта в ячейках уроков
+    private static final short FONT_SIZE_HEADER = 22;      // Размер шрифта заголовка с датой
+    private static final short FONT_SIZE_TIME = 14;        // Размер шрифта в столбце времени
+    private static final short FONT_SIZE_ROOM_HEADER = 14; // Размер шрифта в шапке аудиторий
+    
+    // Размеры ячеек (в 1/256 ширины символа '0')
+    private static final int COLUMN_WIDTH_TIME = 20 * 256; // Ширина столбца времени (~20 символов)
+    private static final int COLUMN_WIDTH_ROOM = 30 * 256; // Ширина столбца аудитории (~40 символов)
+    
+    // Высота строки (в пунктах)
+    private static final float ROW_HEIGHT_LESSON = 70f;    // Высота строки с уроком
+    private static final float ROW_HEIGHT_HEADER = 50f;    // Высота заголовков
 
     public byte[] generateExcel(ScheduleExportDto scheduleDto) throws IOException {
         try (Workbook workbook = new XSSFWorkbook();
@@ -45,49 +58,55 @@ public class ExcelExportService {
         if (sheetName.length() > 31) sheetName = sheetName.substring(0, 31);
         Sheet sheet = wb.createSheet(sheetName);
 
-        CellStyle headerStyle = createHeaderStyle(wb);
-        CellStyle timeSlotStyle = createTimeSlotStyle(wb);
+        // Создаём стили
+        CellStyle dateHeaderStyle = createDateHeaderStyle(wb);
+        CellStyle timeHeaderStyle = createTimeHeaderStyle(wb);    // Жирный: для заголовка "Время"
+        CellStyle timeValueStyle = createTimeValueStyle(wb);      // Обычный: для значений времени
         CellStyle cancelledStyle = createCancelledStyle(wb);
-        CellStyle largeFontStyle = createLargeFontStyle(wb);
         CellStyle availableStyle = createAvailableStyle(wb);
         
-        Map<Long, CellStyle> roomHeaderStyles = new HashMap<>();
-        for (int i = 0; i < rooms.size(); i++) {
-            roomHeaderStyles.put(rooms.get(i).getId(), createRoomHeaderStyle(wb, i));
-        }
+        // Кэш стилей для уроков (цвета по контенту)
         Map<String, CellStyle> lessonColorCache = new HashMap<>();
 
-        // Заголовок даты
+        // === Строка 0: Заголовок с датой ===
         Row headerRow = sheet.createRow(0);
+        headerRow.setHeightInPoints(ROW_HEIGHT_HEADER);
         Cell headerCell = headerRow.createCell(0);
         headerCell.setCellValue(capitalizeFirst(date.format(DateTimeFormatter.ofPattern(DAY_NAME_FORMAT, RUSSIAN_LOCALE))));
-        headerCell.setCellStyle(largeFontStyle);
+        headerCell.setCellStyle(dateHeaderStyle);
         sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, rooms.size()));
 
-        // Шапка: аудитории
+        // === Строка 1: Шапка (Время + Аудитории) ===
         Row roomHeaderRow = sheet.createRow(1);
+        roomHeaderRow.setHeightInPoints(ROW_HEIGHT_HEADER);
+        
+        // Столбец "Время" (заголовок)
         Cell timeHeader = roomHeaderRow.createCell(0);
         timeHeader.setCellValue("Время");
-        timeHeader.setCellStyle(headerStyle);
+        timeHeader.setCellStyle(timeHeaderStyle); // ← Жирный стиль
 
+        // Аудитории
         for (int i = 0; i < rooms.size(); i++) {
             Cell cell = roomHeaderRow.createCell(i + 1);
             ScheduleExportDto.RoomInfo room = rooms.get(i);
             cell.setCellValue(room.getDisplayName());
-            cell.setCellStyle(roomHeaderStyles.get(room.getId()));
+            cell.setCellStyle(createRoomHeaderStyle(wb, i));
         }
 
-        // Тело таблицы
+        // === Тело таблицы: уроки ===
         int rowNum = 2;
         Set<String> processedMerges = new HashSet<>();
 
         for (ScheduleExportDto.TimeSlot slot : timeSlots) {
             Row row = sheet.createRow(rowNum++);
+            row.setHeightInPoints(ROW_HEIGHT_LESSON);
             
+            // Столбец времени (значение)
             Cell timeCell = row.createCell(0);
             timeCell.setCellValue(slot.getTimeRange());
-            timeCell.setCellStyle(timeSlotStyle);
+            timeCell.setCellStyle(timeValueStyle); // ← Обычный стиль (не жирный)
 
+            // Ячейки аудиторий
             for (int colIdx = 0; colIdx < rooms.size(); colIdx++) {
                 ScheduleExportDto.RoomInfo room = rooms.get(colIdx);
                 Long roomId = room.getId();
@@ -103,7 +122,6 @@ public class ExcelExportService {
                     if (Boolean.TRUE.equals(lesson.getIsCancelled())) {
                         lessonCell.setCellStyle(cancelledStyle);
                     } else {
-                        // Детерминированный цвет на основе content
                         CellStyle colorStyle = lessonColorCache.computeIfAbsent(
                                 lesson.getCellContent(), 
                                 key -> createLessonStyleWithColor(wb, lesson.getCellContent())
@@ -111,7 +129,6 @@ public class ExcelExportService {
                         lessonCell.setCellStyle(colorStyle);
                     }
                     
-                    // Горизонтальное слияние
                     if (lesson.getMergedRoomIds() != null && lesson.getMergedRoomIds().size() > 1) {
                         int firstCol = colIdx + 1;
                         int lastCol = firstCol + lesson.getMergedRoomIds().size() - 1;
@@ -128,9 +145,14 @@ public class ExcelExportService {
             }
         }
 
-        for (int i = 0; i <= rooms.size(); i++) sheet.autoSizeColumn(i);
-        sheet.setColumnWidth(0, 20 * 256);
+        // === Настройка ширины колонок ===
+        sheet.setColumnWidth(0, COLUMN_WIDTH_TIME);
+        for (int i = 0; i < rooms.size(); i++) {
+            sheet.setColumnWidth(i + 1, COLUMN_WIDTH_ROOM);
+        }
     }
+
+    // === Вспомогательные методы ===
 
     private boolean shouldSkipCell(List<ScheduleExportDto.LessonInfo> lessons, Long roomId, String timeRange) {
         ScheduleExportDto.LessonInfo lesson = findLesson(lessons, roomId, timeRange);
@@ -145,22 +167,23 @@ public class ExcelExportService {
                 .findFirst().orElse(null);
     }
 
-    // === Генерация пастельных RGB цветов ===
+    // === Генерация пастельных цветов ===
     private static int[] generatePastelColor(int seed) {
-        // Алгоритм гарантирует светлые тона (210-255) для читаемости чёрного текста
         int r = 215 + (Math.abs(seed * 13) % 40);
         int g = 220 + (Math.abs(seed * 29) % 35);
         int b = 225 + (Math.abs(seed * 41) % 30);
         return new int[]{r, g, b};
     }
 
-    // === Factory methods for styles ===
-    private XSSFCellStyle createBaseStyle(XSSFWorkbook wb, boolean bold, short fontSize, int[] rgb, 
-                                          HorizontalAlignment align, boolean wrap) {
+    // === Factory methods для стилей ===
+
+    private XSSFCellStyle createBaseStyle(XSSFWorkbook wb, short fontSize, int[] rgb, boolean bold,
+                                          HorizontalAlignment align, VerticalAlignment valign, boolean wrap) {
         XSSFCellStyle style = wb.createCellStyle();
         Font font = wb.createFont();
-        if (bold) font.setBold(true);
         font.setFontHeightInPoints(fontSize);
+        if (bold) font.setBold(true);
+        font.setColor(IndexedColors.BLACK.getIndex());
         style.setFont(font);
         
         if (rgb != null) {
@@ -171,58 +194,58 @@ public class ExcelExportService {
         
         applyBorders(style);
         style.setAlignment(align);
-        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        style.setVerticalAlignment(valign);
         if (wrap) style.setWrapText(true);
         return style;
     }
 
-    private CellStyle createHeaderStyle(XSSFWorkbook wb) { 
-        return createBaseStyle(wb, true, (short)11, generatePastelColor(100), HorizontalAlignment.CENTER, true); 
+    private CellStyle createDateHeaderStyle(XSSFWorkbook wb) {
+        return createBaseStyle(wb, FONT_SIZE_HEADER, new int[]{255, 255, 255}, true, 
+                              HorizontalAlignment.CENTER, VerticalAlignment.CENTER, false);
     }
     
-    private CellStyle createTimeSlotStyle(XSSFWorkbook wb) { 
-        return createBaseStyle(wb, true, (short)10, generatePastelColor(200), HorizontalAlignment.CENTER, false); 
+    private CellStyle createTimeHeaderStyle(XSSFWorkbook wb) {
+        // Заголовок "Время": жирный, чёрный на белом, по центру
+        return createBaseStyle(wb, FONT_SIZE_TIME, new int[]{255, 255, 255}, true, 
+                              HorizontalAlignment.CENTER, VerticalAlignment.CENTER, false);
+    }
+    
+    private CellStyle createTimeValueStyle(XSSFWorkbook wb) {
+        // Значения времени: НЕ жирный, чёрный на белом, по центру
+        return createBaseStyle(wb, FONT_SIZE_TIME, new int[]{255, 255, 255}, false, 
+                              HorizontalAlignment.CENTER, VerticalAlignment.CENTER, false);
     }
     
     private CellStyle createRoomHeaderStyle(XSSFWorkbook wb, int idx) {
-        // Уникальный цвет для каждой аудитории
+        // Шапка аудитории: жирный, уникальный пастельный фон, чёрный текст, по центру
         int[] rgb = generatePastelColor(idx * 79 + 300);
-        return createBaseStyle(wb, true, (short)11, rgb, HorizontalAlignment.CENTER, true);
+        return createBaseStyle(wb, FONT_SIZE_ROOM_HEADER, rgb, true, 
+                              HorizontalAlignment.CENTER, VerticalAlignment.CENTER, true);
     }
     
     private CellStyle createLessonStyleWithColor(XSSFWorkbook wb, String contentKey) {
+        // Ячейка урока: НЕ жирный, цветной фон, чёрный текст, по центру
         int[] rgb = generatePastelColor(contentKey.hashCode());
-        XSSFCellStyle style = createBaseStyle(wb, false, (short)10, rgb, HorizontalAlignment.LEFT, true);
-        return style;
+        return createBaseStyle(wb, FONT_SIZE_LESSON, rgb, false, 
+                              HorizontalAlignment.CENTER, VerticalAlignment.CENTER, true);
     }
     
     private CellStyle createCancelledStyle(XSSFWorkbook wb) {
-        // Розовый для отмен (RGB: 255, 200, 210)
-        XSSFCellStyle style = createBaseStyle(wb, false, (short)10, new int[]{255, 200, 210}, HorizontalAlignment.LEFT, true);
-        Font f = wb.createFont(); 
-        f.setFontHeightInPoints((short)10); 
-        f.setItalic(true); 
+        // Отменённый урок: НЕ жирный, розовый фон, чёрный текст, курсив, по центру
+        XSSFCellStyle style = createBaseStyle(wb, FONT_SIZE_LESSON, new int[]{255, 200, 210}, false, 
+                                              HorizontalAlignment.CENTER, VerticalAlignment.CENTER, true);
+        Font f = wb.createFont();
+        f.setFontHeightInPoints(FONT_SIZE_LESSON);
+        f.setItalic(true);
+        f.setColor(IndexedColors.BLACK.getIndex());
         style.setFont(f);
         return style;
     }
     
     private CellStyle createAvailableStyle(XSSFWorkbook wb) {
-        XSSFCellStyle style = createBaseStyle(wb, false, (short)9, new int[]{245, 245, 245}, HorizontalAlignment.CENTER, false);
-        Font f = wb.createFont(); 
-        f.setColor(IndexedColors.GREY_50_PERCENT.getIndex()); 
-        style.setFont(f);
-        return style;
-    }
-    
-    private CellStyle createLargeFontStyle(XSSFWorkbook wb) {
-        XSSFCellStyle style = wb.createCellStyle();
-        Font f = wb.createFont(); 
-        f.setBold(true); 
-        f.setFontHeightInPoints((short)16); 
-        style.setFont(f);
-        style.setAlignment(HorizontalAlignment.CENTER); 
-        style.setVerticalAlignment(VerticalAlignment.CENTER);
-        return style;
+        // "Available": НЕ жирный, чёрный текст на белом фоне, по центру
+        return createBaseStyle(wb, FONT_SIZE_LESSON, new int[]{255, 255, 255}, false, 
+                              HorizontalAlignment.CENTER, VerticalAlignment.CENTER, false);
     }
     
     private void applyBorders(CellStyle s) {
