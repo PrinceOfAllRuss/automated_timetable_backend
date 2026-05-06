@@ -1,4 +1,5 @@
 package app.timetable_back.service;
+
 import app.timetable_back.dto.*;
 import app.timetable_back.entity.*;
 import app.timetable_back.repository.*;
@@ -8,6 +9,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -215,52 +219,41 @@ public class LessonService {
         return toDto(lesson);
     }
 
-    // --- MAPPER METHODS (используют существующие DTO, без вложенных классов) ---
+    @Transactional(readOnly = true)
+    public List<LessonResponseDto> findLessonsByDate(LocalDate date) {
+        LocalDateTime startOfDay = date.atStartOfDay();
+        LocalDateTime endOfDay = startOfDay.plusDays(1);
+        return lessonRepository.findByDateRange(startOfDay, endOfDay).stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<LessonResponseDto> findLessonsByDateRange(LocalDate startDate, LocalDate endDate) {
+        if (endDate.isBefore(startDate)) {
+            throw new IllegalArgumentException("End date must be after or equal to start date");
+        }
+        // Преобразуем даты в LocalTime: начало дня 00:00:00 и конец дня 23:59:59
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
+        
+        return lessonRepository.findByDateRange(startDateTime, endDateTime).stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
 
     private LessonResponseDto toDto(Lesson lesson) {
         List<Long> groupIds = lesson.getLessonStudentGroups() != null
-                ? new ArrayList<>(lesson.getLessonStudentGroups().stream()
+                ? lesson.getLessonStudentGroups().stream()
                     .map(lsg -> lsg.getGroup().getId())
-                    .collect(Collectors.toSet()))
-                : new ArrayList<>();
+                    .collect(Collectors.toList())
+                : List.of();
 
         List<RoomResponseDto> rooms = lesson.getLessonRooms() != null
                 ? lesson.getLessonRooms().stream()
-                    .map(lr -> RoomResponseDto.builder()
-                            .id(lr.getRoom().getId())
-                            .roomNumber(lr.getRoom().getRoomNumber())
-                            .building(lr.getRoom().getBuilding())
-                            .capacity(lr.getRoom().getCapacity())
-                            .createdAt(lr.getRoom().getCreatedAt())
-                            .updatedAt(lr.getRoom().getUpdatedAt())
-                            .build())
+                    .map(lr -> mapRoomResponse(lr.getRoom()))
                     .collect(Collectors.toList())
-                : Collections.emptyList();
-
-        SubjectResponseDto subject = lesson.getSubject() != null
-                ? SubjectResponseDto.builder()
-                    .id(lesson.getSubject().getId())
-                    .name(lesson.getSubject().getName())
-                    .code(lesson.getSubject().getCode())
-                    .faculty(lesson.getSubject().getFaculty())
-                    .description(lesson.getSubject().getDescription())
-                    .createdAt(lesson.getSubject().getCreatedAt())
-                    .updatedAt(lesson.getSubject().getUpdatedAt())
-                    .build()
-                : null;
-
-        UserResponseDto teacher = lesson.getTeacher() != null
-                ? UserResponseDto.builder()
-                    .id(lesson.getTeacher().getId())
-                    .firstName(lesson.getTeacher().getFirstName())
-                    .lastName(lesson.getTeacher().getLastName())
-                    .email(lesson.getTeacher().getEmail())
-                    .role(lesson.getTeacher().getRole())
-                    .phone(lesson.getTeacher().getPhone())
-                    .createdAt(lesson.getTeacher().getCreatedAt())
-                    .updatedAt(lesson.getTeacher().getUpdatedAt())
-                    .build()
-                : null;
+                : List.of();
 
         return LessonResponseDto.builder()
                 .id(lesson.getId())
@@ -272,47 +265,24 @@ public class LessonService {
                 .createdAt(lesson.getCreatedAt() != null ? lesson.getCreatedAt().toLocalDateTime() : null)
                 .updatedAt(lesson.getUpdatedAt() != null ? lesson.getUpdatedAt().toLocalDateTime() : null)
                 .rooms(rooms)
-                .subject(subject)
-                .teacher(teacher)
+                .subject(lesson.getSubject() != null ? mapSubjectResponse(lesson.getSubject()) : null)
+                .teacher(lesson.getTeacher() != null ? mapUserResponse(lesson.getTeacher()) : null)
                 .groupIds(groupIds)
                 .build();
     }
 
     private LessonListViewDto toListViewDto(Lesson lesson) {
         List<Long> groupIds = lesson.getLessonStudentGroups() != null
-                ? new ArrayList<>(lesson.getLessonStudentGroups().stream()
+                ? lesson.getLessonStudentGroups().stream()
                     .map(lsg -> lsg.getGroup().getId())
-                    .collect(Collectors.toSet()))
-                : new ArrayList<>();
+                    .collect(Collectors.toList())
+                : List.of();
 
         List<RoomListViewDto> rooms = lesson.getLessonRooms() != null
                 ? lesson.getLessonRooms().stream()
-                    .map(lr -> RoomListViewDto.builder()
-                            .roomNumber(lr.getRoom().getRoomNumber())
-                            .building(lr.getRoom().getBuilding())
-                            .capacity(lr.getRoom().getCapacity())
-                            .build())
+                    .map(lr -> mapRoomListView(lr.getRoom()))
                     .collect(Collectors.toList())
-                : Collections.emptyList();
-
-        SubjectListViewDto subject = lesson.getSubject() != null
-                ? SubjectListViewDto.builder()
-                    .name(lesson.getSubject().getName())
-                    .code(lesson.getSubject().getCode())
-                    .faculty(lesson.getSubject().getFaculty())
-                    .description(lesson.getSubject().getDescription())
-                    .build()
-                : null;
-
-        UserListViewDto teacher = lesson.getTeacher() != null
-                ? UserListViewDto.builder()
-                    .firstName(lesson.getTeacher().getFirstName())
-                    .lastName(lesson.getTeacher().getLastName())
-                    .email(lesson.getTeacher().getEmail())
-                    .role(lesson.getTeacher().getRole())
-                    .phone(lesson.getTeacher().getPhone())
-                    .build()
-                : null;
+                : List.of();
 
         return LessonListViewDto.builder()
                 .startAt(lesson.getStartAt())
@@ -321,9 +291,43 @@ public class LessonService {
                 .isOverride(lesson.getIsOverride())
                 .isCancelled(lesson.getIsCancelled())
                 .rooms(rooms)
-                .subject(subject)
-                .teacher(teacher)
+                .subject(lesson.getSubject() != null ? mapSubjectListView(lesson.getSubject()) : null)
+                .teacher(lesson.getTeacher() != null ? mapUserListView(lesson.getTeacher()) : null)
                 .groupIds(groupIds)
                 .build();
+    }
+
+    private RoomResponseDto mapRoomResponse(Room room) {
+        if (room == null) return null;
+        return RoomResponseDto.builder().id(room.getId()).roomNumber(room.getRoomNumber())
+                .building(room.getBuilding()).capacity(room.getCapacity())
+                .createdAt(room.getCreatedAt()).updatedAt(room.getUpdatedAt()).build();
+    }
+    private RoomListViewDto mapRoomListView(Room room) {
+        if (room == null) return null;
+        return RoomListViewDto.builder().roomNumber(room.getRoomNumber())
+                .building(room.getBuilding()).capacity(room.getCapacity()).build();
+    }
+    private SubjectResponseDto mapSubjectResponse(Subject subject) {
+        if (subject == null) return null;
+        return SubjectResponseDto.builder().id(subject.getId()).name(subject.getName())
+                .code(subject.getCode()).faculty(subject.getFaculty()).description(subject.getDescription())
+                .createdAt(subject.getCreatedAt()).updatedAt(subject.getUpdatedAt()).build();
+    }
+    private SubjectListViewDto mapSubjectListView(Subject subject) {
+        if (subject == null) return null;
+        return SubjectListViewDto.builder().name(subject.getName()).code(subject.getCode())
+                .faculty(subject.getFaculty()).description(subject.getDescription()).build();
+    }
+    private UserResponseDto mapUserResponse(User user) {
+        if (user == null) return null;
+        return UserResponseDto.builder().id(user.getId()).firstName(user.getFirstName())
+                .lastName(user.getLastName()).email(user.getEmail()).role(user.getRole())
+                .phone(user.getPhone()).createdAt(user.getCreatedAt()).updatedAt(user.getUpdatedAt()).build();
+    }
+    private UserListViewDto mapUserListView(User user) {
+        if (user == null) return null;
+        return UserListViewDto.builder().firstName(user.getFirstName()).lastName(user.getLastName())
+                .email(user.getEmail()).role(user.getRole()).phone(user.getPhone()).build();
     }
 }

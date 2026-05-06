@@ -26,7 +26,6 @@ import java.util.List;
 @EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
-
     private final MyUserDetailsService myUserDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
@@ -75,8 +74,11 @@ public class SecurityConfig {
                         .requestMatchers("/auth/login", "/auth/refresh").permitAll()
                         // Export endpoints (accessible by ADMIN and TEACHER)
                         .requestMatchers("/export/**").hasAnyRole("ADMIN", "TEACHER")
+                        // 🆕 Schedule view endpoints (accessible by ADMIN and TEACHER)
+                        .requestMatchers("/schedule/**").hasAnyRole("ADMIN", "TEACHER")
+                        // Comments
                         .requestMatchers("/day-comments/**").authenticated()
-                        // Admin endpoints
+                        // Admin CRUD endpoints (strictly ADMIN only)
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         // All other requests
                         .anyRequest().authenticated()
