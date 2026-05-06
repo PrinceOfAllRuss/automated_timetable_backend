@@ -1,5 +1,4 @@
 package app.timetable_back.service;
-
 import app.timetable_back.dto.PageResponse;
 import app.timetable_back.dto.UserDto;
 import app.timetable_back.dto.UserListViewDto;
@@ -13,13 +12,11 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 public class UserService {
-
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
@@ -67,7 +64,6 @@ public class UserService {
     public User updateUser(Long id, UserDto userDto) {
         User existingUser = findById(id);
 
-        // Check email uniqueness if email changed
         if (!existingUser.getEmail().equals(userDto.getEmail()) && existsByEmail(userDto.getEmail())) {
             throw new IllegalArgumentException("User with this email already exists");
         }
@@ -78,7 +74,6 @@ public class UserService {
         existingUser.setRole(userDto.getRole());
         existingUser.setPhone(userDto.getPhone());
 
-        // Update password if provided
         if (userDto.getPassword() != null && !userDto.getPassword().isEmpty()) {
             existingUser.setPasswordHash(passwordEncoder.encode(userDto.getPassword()));
         }
@@ -99,36 +94,24 @@ public class UserService {
         return userRepository.findAll();
     }
 
-    /**
-     * Create user and return DTO
-     */
     @Transactional
     public UserResponseDto createUserDto(UserDto userDto) {
         User user = createUser(userDto);
         return toDto(user);
     }
 
-    /**
-     * Update user and return DTO
-     */
     @Transactional
     public UserResponseDto updateUserDto(Long id, UserDto userDto) {
         User user = updateUser(id, userDto);
         return toDto(user);
     }
 
-    /**
-     * Get user by ID as DTO
-     */
     @Transactional(readOnly = true)
     public UserResponseDto findByIdDto(Long id) {
         User user = findById(id);
         return toDto(user);
     }
 
-    /**
-     * Get all users as DTOs
-     */
     @Transactional(readOnly = true)
     public List<UserResponseDto> findAllDto() {
         return userRepository.findAll().stream()
@@ -136,13 +119,15 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Get paginated users as ListView DTOs (без id, createdAt, updatedAt)
-     */
     @Transactional(readOnly = true)
-    public PageResponse<UserListViewDto> findAllListView(int page, int size) {
+    public PageResponse<UserListViewDto> findAllListView(int page, int size, String search) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<User> userPage = userRepository.findAll(pageable);
+        
+        String searchPattern = (search != null && !search.trim().isEmpty()) 
+                ? "%" + search.trim().toLowerCase() + "%" 
+                : null;
+                
+        Page<User> userPage = userRepository.findBySearchQuery(searchPattern, pageable);
 
         List<UserListViewDto> content = userPage.getContent().stream()
                 .map(this::toListViewDto)
@@ -157,9 +142,6 @@ public class UserService {
                 .build();
     }
 
-    /**
-     * Map User entity to UserResponseDto
-     */
     private UserResponseDto toDto(User user) {
         return UserResponseDto.builder()
                 .id(user.getId())
@@ -173,9 +155,6 @@ public class UserService {
                 .build();
     }
 
-    /**
-     * Map User entity to UserListViewDto (без id, createdAt, updatedAt)
-     */
     private UserListViewDto toListViewDto(User user) {
         return UserListViewDto.builder()
                 .firstName(user.getFirstName())

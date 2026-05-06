@@ -1,5 +1,4 @@
 package app.timetable_back.service;
-
 import app.timetable_back.dto.GroupDto;
 import app.timetable_back.dto.GroupListViewDto;
 import app.timetable_back.dto.GroupResponseDto;
@@ -11,13 +10,11 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 public class GroupService {
-
     private final GroupRepository groupRepository;
 
     public GroupService(GroupRepository groupRepository) {
@@ -37,18 +34,15 @@ public class GroupService {
                 .courseYear(groupDto.getCourseYear())
                 .studentCount(groupDto.getStudentCount())
                 .build();
-
         return groupRepository.save(group);
     }
 
     @Transactional
     public StudentGroup updateGroup(Long id, GroupDto groupDto) {
         StudentGroup existingGroup = findById(id);
-
         existingGroup.setName(groupDto.getName());
         existingGroup.setCourseYear(groupDto.getCourseYear());
         existingGroup.setStudentCount(groupDto.getStudentCount());
-
         return groupRepository.save(existingGroup);
     }
 
@@ -65,36 +59,24 @@ public class GroupService {
         return groupRepository.findAll();
     }
 
-    /**
-     * Create group and return DTO
-     */
     @Transactional
     public GroupResponseDto createGroupDto(GroupDto groupDto) {
         StudentGroup group = createGroup(groupDto);
         return toDto(group);
     }
 
-    /**
-     * Update group and return DTO
-     */
     @Transactional
     public GroupResponseDto updateGroupDto(Long id, GroupDto groupDto) {
         StudentGroup group = updateGroup(id, groupDto);
         return toDto(group);
     }
 
-    /**
-     * Get group by ID as DTO
-     */
     @Transactional(readOnly = true)
     public GroupResponseDto findByIdDto(Long id) {
         StudentGroup group = findById(id);
         return toDto(group);
     }
 
-    /**
-     * Get all groups as DTOs
-     */
     @Transactional(readOnly = true)
     public List<GroupResponseDto> findAllDto() {
         return groupRepository.findAll().stream()
@@ -102,14 +84,14 @@ public class GroupService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Get paginated groups as ListView DTOs (без id, createdAt, updatedAt)
-     */
     @Transactional(readOnly = true)
-    public PageResponse<GroupListViewDto> findAllListView(int page, int size) {
+    public PageResponse<GroupListViewDto> findAllListView(int page, int size, String search) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<StudentGroup> groupPage = groupRepository.findAll(pageable);
+        String searchPattern = (search != null && !search.trim().isEmpty()) 
+                ? "%" + search.trim().toLowerCase() + "%" 
+                : null;
 
+        Page<StudentGroup> groupPage = groupRepository.findBySearchQuery(searchPattern, pageable);
         List<GroupListViewDto> content = groupPage.getContent().stream()
                 .map(this::toListViewDto)
                 .collect(Collectors.toList());
@@ -123,9 +105,6 @@ public class GroupService {
                 .build();
     }
 
-    /**
-     * Map StudentGroup entity to GroupResponseDto
-     */
     private GroupResponseDto toDto(StudentGroup group) {
         return GroupResponseDto.builder()
                 .id(group.getId())
@@ -137,9 +116,6 @@ public class GroupService {
                 .build();
     }
 
-    /**
-     * Map StudentGroup entity to GroupListViewDto (без id, createdAt, updatedAt)
-     */
     private GroupListViewDto toListViewDto(StudentGroup group) {
         return GroupListViewDto.builder()
                 .name(group.getName())

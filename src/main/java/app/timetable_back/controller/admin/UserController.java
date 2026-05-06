@@ -1,5 +1,4 @@
 package app.timetable_back.controller.admin;
-
 import app.timetable_back.dto.PageResponse;
 import app.timetable_back.dto.UserDto;
 import app.timetable_back.dto.UserListViewDto;
@@ -17,7 +16,6 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
 import java.net.URI;
 import java.util.List;
 
@@ -27,7 +25,6 @@ import java.util.List;
 @SecurityRequirement(name = "bearerAuth")
 @Tag(name = "User Management", description = "API для управления пользователями")
 public class UserController {
-
     private final UserService userService;
 
     public UserController(UserService userService) {
@@ -37,8 +34,7 @@ public class UserController {
     @PostMapping("/create-user")
     @Operation(summary = "Create new user", description = "Создание нового пользователя")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "User created successfully",
-                    content = @Content(schema = @Schema(implementation = UserResponseDto.class))),
+            @ApiResponse(responseCode = "201", description = "User created successfully", content = @Content(schema = @Schema(implementation = UserResponseDto.class))),
             @ApiResponse(responseCode = "400", description = "Invalid input data"),
             @ApiResponse(responseCode = "403", description = "Access denied")
     })
@@ -50,8 +46,7 @@ public class UserController {
     @PutMapping("/update-user/{userId}")
     @Operation(summary = "Update user", description = "Обновление данных пользователя")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "User updated successfully",
-                    content = @Content(schema = @Schema(implementation = UserResponseDto.class))),
+            @ApiResponse(responseCode = "200", description = "User updated successfully", content = @Content(schema = @Schema(implementation = UserResponseDto.class))),
             @ApiResponse(responseCode = "400", description = "Invalid input data"),
             @ApiResponse(responseCode = "404", description = "User not found")
     })
@@ -77,8 +72,7 @@ public class UserController {
     @GetMapping("/user/{userId}")
     @Operation(summary = "Get user by ID", description = "Получение данных пользователя по ID")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "User found",
-                    content = @Content(schema = @Schema(implementation = UserResponseDto.class))),
+            @ApiResponse(responseCode = "200", description = "User found", content = @Content(schema = @Schema(implementation = UserResponseDto.class))),
             @ApiResponse(responseCode = "404", description = "User not found")
     })
     public ResponseEntity<UserResponseDto> getUser(
@@ -90,8 +84,7 @@ public class UserController {
     @GetMapping("/users")
     @Operation(summary = "Get all users", description = "Получение списка всех пользователей")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Users found",
-                    content = @Content(schema = @Schema(implementation = UserResponseDto.class)))
+            @ApiResponse(responseCode = "200", description = "Users found", content = @Content(schema = @Schema(implementation = UserResponseDto.class)))
     })
     public ResponseEntity<List<UserResponseDto>> getAllUsers() {
         List<UserResponseDto> users = userService.findAllDto();
@@ -99,17 +92,15 @@ public class UserController {
     }
 
     @GetMapping("/users/list")
-    @Operation(summary = "Get paginated users list", description = "Получение пагинированного списка пользователей (без id, createdAt, updatedAt)")
+    @Operation(summary = "Get paginated users list with search", description = "Получение пагинированного списка пользователей с поиском")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Users found",
-                    content = @Content(schema = @Schema(implementation = PageResponse.class)))
+            @ApiResponse(responseCode = "200", description = "Users found", content = @Content(schema = @Schema(implementation = PageResponse.class)))
     })
     public ResponseEntity<PageResponse<UserListViewDto>> getUsersList(
-            @Parameter(description = "Номер страницы (начиная с 0)", example = "0")
-            @RequestParam(defaultValue = "0") int page,
-            @Parameter(description = "Размер страницы", example = "20")
-            @RequestParam(defaultValue = "20") int size) {
-        PageResponse<UserListViewDto> response = userService.findAllListView(page, size);
+            @Parameter(description = "Номер страницы (начиная с 0)", example = "0") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Размер страницы", example = "20") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Поисковый запрос (частичное совпадение)") @RequestParam(required = false) String search) {
+        PageResponse<UserListViewDto> response = userService.findAllListView(page, size, search);
         return ResponseEntity.ok(response);
     }
 }

@@ -1,5 +1,4 @@
 package app.timetable_back.controller.admin;
-
 import app.timetable_back.dto.PageResponse;
 import app.timetable_back.dto.RoomDto;
 import app.timetable_back.dto.RoomListViewDto;
@@ -17,7 +16,6 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
 import java.net.URI;
 import java.util.List;
 
@@ -27,7 +25,6 @@ import java.util.List;
 @SecurityRequirement(name = "bearerAuth")
 @Tag(name = "Room Management", description = "API для управления аудиториями")
 public class RoomController {
-
     private final RoomService roomService;
 
     public RoomController(RoomService roomService) {
@@ -37,8 +34,7 @@ public class RoomController {
     @PostMapping("/create-room")
     @Operation(summary = "Create new room", description = "Создание новой аудитории")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Room created successfully",
-                    content = @Content(schema = @Schema(implementation = RoomResponseDto.class))),
+            @ApiResponse(responseCode = "201", description = "Room created successfully", content = @Content(schema = @Schema(implementation = RoomResponseDto.class))),
             @ApiResponse(responseCode = "400", description = "Invalid input data"),
             @ApiResponse(responseCode = "403", description = "Access denied")
     })
@@ -50,8 +46,7 @@ public class RoomController {
     @PutMapping("/update-room/{roomId}")
     @Operation(summary = "Update room", description = "Обновление данных аудитории")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Room updated successfully",
-                    content = @Content(schema = @Schema(implementation = RoomResponseDto.class))),
+            @ApiResponse(responseCode = "200", description = "Room updated successfully", content = @Content(schema = @Schema(implementation = RoomResponseDto.class))),
             @ApiResponse(responseCode = "400", description = "Invalid input data"),
             @ApiResponse(responseCode = "404", description = "Room not found")
     })
@@ -77,8 +72,7 @@ public class RoomController {
     @GetMapping("/room/{roomId}")
     @Operation(summary = "Get room by ID", description = "Получение данных аудитории по ID")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Room found",
-                    content = @Content(schema = @Schema(implementation = RoomResponseDto.class))),
+            @ApiResponse(responseCode = "200", description = "Room found", content = @Content(schema = @Schema(implementation = RoomResponseDto.class))),
             @ApiResponse(responseCode = "404", description = "Room not found")
     })
     public ResponseEntity<RoomResponseDto> getRoom(
@@ -90,8 +84,7 @@ public class RoomController {
     @GetMapping("/rooms")
     @Operation(summary = "Get all rooms", description = "Получение списка всех аудиторий")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Rooms found",
-                    content = @Content(schema = @Schema(implementation = RoomResponseDto.class)))
+            @ApiResponse(responseCode = "200", description = "Rooms found", content = @Content(schema = @Schema(implementation = RoomResponseDto.class)))
     })
     public ResponseEntity<List<RoomResponseDto>> getAllRooms() {
         List<RoomResponseDto> rooms = roomService.findAllDto();
@@ -99,17 +92,15 @@ public class RoomController {
     }
 
     @GetMapping("/rooms/list")
-    @Operation(summary = "Get paginated rooms list", description = "Получение пагинированного списка аудиторий (без id, createdAt, updatedAt)")
+    @Operation(summary = "Get paginated rooms list with search", description = "Получение пагинированного списка аудиторий с поиском")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Rooms found",
-                    content = @Content(schema = @Schema(implementation = PageResponse.class)))
+            @ApiResponse(responseCode = "200", description = "Rooms found", content = @Content(schema = @Schema(implementation = PageResponse.class)))
     })
     public ResponseEntity<PageResponse<RoomListViewDto>> getRoomsList(
-            @Parameter(description = "Номер страницы (начиная с 0)", example = "0")
-            @RequestParam(defaultValue = "0") int page,
-            @Parameter(description = "Размер страницы", example = "20")
-            @RequestParam(defaultValue = "20") int size) {
-        PageResponse<RoomListViewDto> response = roomService.findAllListView(page, size);
+            @Parameter(description = "Номер страницы (начиная с 0)", example = "0") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Размер страницы", example = "20") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Поисковый запрос (частичное совпадение)") @RequestParam(required = false) String search) {
+        PageResponse<RoomListViewDto> response = roomService.findAllListView(page, size, search);
         return ResponseEntity.ok(response);
     }
 }

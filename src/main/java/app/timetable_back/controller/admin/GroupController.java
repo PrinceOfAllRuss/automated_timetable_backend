@@ -1,5 +1,4 @@
 package app.timetable_back.controller.admin;
-
 import app.timetable_back.dto.GroupDto;
 import app.timetable_back.dto.GroupListViewDto;
 import app.timetable_back.dto.GroupResponseDto;
@@ -17,7 +16,6 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
 import java.net.URI;
 import java.util.List;
 
@@ -27,7 +25,6 @@ import java.util.List;
 @SecurityRequirement(name = "bearerAuth")
 @Tag(name = "Group Management", description = "API для управления группами")
 public class GroupController {
-
     private final GroupService groupService;
 
     public GroupController(GroupService groupService) {
@@ -37,8 +34,7 @@ public class GroupController {
     @PostMapping("/create-group")
     @Operation(summary = "Create new group", description = "Создание новой группы")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Group created successfully",
-                    content = @Content(schema = @Schema(implementation = GroupResponseDto.class))),
+            @ApiResponse(responseCode = "201", description = "Group created successfully", content = @Content(schema = @Schema(implementation = GroupResponseDto.class))),
             @ApiResponse(responseCode = "400", description = "Invalid input data"),
             @ApiResponse(responseCode = "403", description = "Access denied")
     })
@@ -50,8 +46,7 @@ public class GroupController {
     @PutMapping("/update-group/{groupId}")
     @Operation(summary = "Update group", description = "Обновление данных группы")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Group updated successfully",
-                    content = @Content(schema = @Schema(implementation = GroupResponseDto.class))),
+            @ApiResponse(responseCode = "200", description = "Group updated successfully", content = @Content(schema = @Schema(implementation = GroupResponseDto.class))),
             @ApiResponse(responseCode = "400", description = "Invalid input data"),
             @ApiResponse(responseCode = "404", description = "Group not found")
     })
@@ -77,8 +72,7 @@ public class GroupController {
     @GetMapping("/group/{groupId}")
     @Operation(summary = "Get group by ID", description = "Получение данных группы по ID")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Group found",
-                    content = @Content(schema = @Schema(implementation = GroupResponseDto.class))),
+            @ApiResponse(responseCode = "200", description = "Group found", content = @Content(schema = @Schema(implementation = GroupResponseDto.class))),
             @ApiResponse(responseCode = "404", description = "Group not found")
     })
     public ResponseEntity<GroupResponseDto> getGroup(
@@ -90,8 +84,7 @@ public class GroupController {
     @GetMapping("/groups")
     @Operation(summary = "Get all groups", description = "Получение списка всех групп")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Groups found",
-                    content = @Content(schema = @Schema(implementation = GroupResponseDto.class)))
+            @ApiResponse(responseCode = "200", description = "Groups found", content = @Content(schema = @Schema(implementation = GroupResponseDto.class)))
     })
     public ResponseEntity<List<GroupResponseDto>> getAllGroups() {
         List<GroupResponseDto> groups = groupService.findAllDto();
@@ -99,17 +92,15 @@ public class GroupController {
     }
 
     @GetMapping("/groups/list")
-    @Operation(summary = "Get paginated groups list", description = "Получение пагинированного списка групп (без id, createdAt, updatedAt)")
+    @Operation(summary = "Get paginated groups list with search", description = "Получение пагинированного списка групп с поиском")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Groups found",
-                    content = @Content(schema = @Schema(implementation = PageResponse.class)))
+            @ApiResponse(responseCode = "200", description = "Groups found", content = @Content(schema = @Schema(implementation = PageResponse.class)))
     })
     public ResponseEntity<PageResponse<GroupListViewDto>> getGroupsList(
-            @Parameter(description = "Номер страницы (начиная с 0)", example = "0")
-            @RequestParam(defaultValue = "0") int page,
-            @Parameter(description = "Размер страницы", example = "20")
-            @RequestParam(defaultValue = "20") int size) {
-        PageResponse<GroupListViewDto> response = groupService.findAllListView(page, size);
+            @Parameter(description = "Номер страницы (начиная с 0)", example = "0") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Размер страницы", example = "20") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Поисковый запрос (частичное совпадение)") @RequestParam(required = false) String search) {
+        PageResponse<GroupListViewDto> response = groupService.findAllListView(page, size, search);
         return ResponseEntity.ok(response);
     }
 }

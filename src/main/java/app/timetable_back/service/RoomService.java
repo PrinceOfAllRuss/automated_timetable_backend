@@ -1,5 +1,4 @@
 package app.timetable_back.service;
-
 import app.timetable_back.dto.PageResponse;
 import app.timetable_back.dto.RoomDto;
 import app.timetable_back.dto.RoomListViewDto;
@@ -11,13 +10,11 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 public class RoomService {
-
     private final RoomRepository roomRepository;
 
     public RoomService(RoomRepository roomRepository) {
@@ -37,18 +34,15 @@ public class RoomService {
                 .building(roomDto.getBuilding())
                 .capacity(roomDto.getCapacity())
                 .build();
-
         return roomRepository.save(room);
     }
 
     @Transactional
     public Room updateRoom(Long id, RoomDto roomDto) {
         Room existingRoom = findById(id);
-
         existingRoom.setRoomNumber(roomDto.getRoomNumber());
         existingRoom.setBuilding(roomDto.getBuilding());
         existingRoom.setCapacity(roomDto.getCapacity());
-
         return roomRepository.save(existingRoom);
     }
 
@@ -65,36 +59,24 @@ public class RoomService {
         return roomRepository.findAll();
     }
 
-    /**
-     * Create room and return DTO
-     */
     @Transactional
     public RoomResponseDto createRoomDto(RoomDto roomDto) {
         Room room = createRoom(roomDto);
         return toDto(room);
     }
 
-    /**
-     * Update room and return DTO
-     */
     @Transactional
     public RoomResponseDto updateRoomDto(Long id, RoomDto roomDto) {
         Room room = updateRoom(id, roomDto);
         return toDto(room);
     }
 
-    /**
-     * Get room by ID as DTO
-     */
     @Transactional(readOnly = true)
     public RoomResponseDto findByIdDto(Long id) {
         Room room = findById(id);
         return toDto(room);
     }
 
-    /**
-     * Get all rooms as DTOs
-     */
     @Transactional(readOnly = true)
     public List<RoomResponseDto> findAllDto() {
         return roomRepository.findAll().stream()
@@ -102,14 +84,14 @@ public class RoomService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Get paginated rooms as ListView DTOs (без id, createdAt, updatedAt)
-     */
     @Transactional(readOnly = true)
-    public PageResponse<RoomListViewDto> findAllListView(int page, int size) {
+    public PageResponse<RoomListViewDto> findAllListView(int page, int size, String search) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<Room> roomPage = roomRepository.findAll(pageable);
+        String searchPattern = (search != null && !search.trim().isEmpty()) 
+                ? "%" + search.trim().toLowerCase() + "%" 
+                : null;
 
+        Page<Room> roomPage = roomRepository.findBySearchQuery(searchPattern, pageable);
         List<RoomListViewDto> content = roomPage.getContent().stream()
                 .map(this::toListViewDto)
                 .collect(Collectors.toList());
@@ -123,9 +105,6 @@ public class RoomService {
                 .build();
     }
 
-    /**
-     * Map Room entity to RoomResponseDto
-     */
     private RoomResponseDto toDto(Room room) {
         return RoomResponseDto.builder()
                 .id(room.getId())
@@ -137,9 +116,6 @@ public class RoomService {
                 .build();
     }
 
-    /**
-     * Map Room entity to RoomListViewDto (без id, createdAt, updatedAt)
-     */
     private RoomListViewDto toListViewDto(Room room) {
         return RoomListViewDto.builder()
                 .roomNumber(room.getRoomNumber())
