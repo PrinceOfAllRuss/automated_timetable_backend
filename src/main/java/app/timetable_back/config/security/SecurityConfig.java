@@ -74,10 +74,10 @@ public class SecurityConfig {
                         .requestMatchers("/auth/login", "/auth/refresh").permitAll()
                         // Export endpoints (accessible by ADMIN and TEACHER)
                         .requestMatchers("/export/**").hasAnyRole("ADMIN", "TEACHER")
-                        // 🆕 Schedule view endpoints (accessible by ADMIN and TEACHER)
+                        // Schedule view endpoints (accessible by ADMIN and TEACHER)
                         .requestMatchers("/schedule/**").hasAnyRole("ADMIN", "TEACHER")
                         // Comments
-                        .requestMatchers("/day-comments/**").authenticated()
+                        .requestMatchers("/day-comments/**").hasAnyRole("ADMIN", "TEACHER")
                         // Admin CRUD endpoints (strictly ADMIN only)
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         // All other requests

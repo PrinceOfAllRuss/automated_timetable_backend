@@ -24,7 +24,6 @@ import java.util.Date;
 @Transactional
 @Slf4j
 public class AuthService {
-
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
@@ -56,12 +55,12 @@ public class AuthService {
             String accessToken = jwtTokenProvider.generateAccessToken(userDetails);
             String refreshToken = jwtTokenProvider.generateRefreshToken(userDetails);
 
-            // Сохраняем refresh токен в памяти
             tokenStorageService.saveToken(request.getEmail(), refreshToken);
 
             User user = userDetails.getUser();
 
             return AuthResponse.builder()
+                    .userId(user.getId())
                     .accessToken(accessToken)
                     .refreshToken(refreshToken)
                     .tokenType("Bearer")
@@ -100,7 +99,6 @@ public class AuthService {
 
         String email = jwtTokenProvider.extractUsername(refreshToken);
 
-        // Проверяем, что токен актуальный (сравниваем с хранилищем)
         if (!tokenStorageService.isTokenValid(email, refreshToken)) {
             throw new BadCredentialsException("Refresh токен устарел или недействителен");
         }
@@ -110,19 +108,17 @@ public class AuthService {
 
         MyUserDetails userDetails = new MyUserDetails(user);
 
-        // Проверяем срок действия токена
         if (jwtTokenProvider.extractExpiration(refreshToken).before(new Date())) {
             throw new BadCredentialsException("Refresh токен истек");
         }
 
-        // Генерируем новые токены
         String newAccessToken = jwtTokenProvider.generateAccessToken(userDetails);
         String newRefreshToken = jwtTokenProvider.generateRefreshToken(userDetails);
 
-        // Сохраняем новый токен в памяти (старый автоматически становится неактуальным)
         tokenStorageService.saveToken(email, newRefreshToken);
 
         return AuthResponse.builder()
+                .userId(user.getId())
                 .accessToken(newAccessToken)
                 .refreshToken(newRefreshToken)
                 .tokenType("Bearer")
