@@ -20,9 +20,10 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/schedule")
-@PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+// ИЗМЕНЕНИЕ: Добавлена роль DISPATCHER для просмотра расписания
+@PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'DISPATCHER')")
 @SecurityRequirement(name = "bearerAuth")
-@Tag(name = "Schedule View", description = "API для просмотра расписания (доступно ADMIN и TEACHER)")
+@Tag(name = "Schedule View", description = "API для просмотра расписания")
 public class ScheduleController {
     private final LessonService lessonService;
 

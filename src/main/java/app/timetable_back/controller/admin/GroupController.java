@@ -1,4 +1,5 @@
 package app.timetable_back.controller.admin;
+
 import app.timetable_back.dto.GroupDto;
 import app.timetable_back.dto.GroupListViewDto;
 import app.timetable_back.dto.GroupResponseDto;
@@ -16,12 +17,13 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
 import java.net.URI;
 import java.util.List;
 
 @RestController
 @RequestMapping("/admin")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'DISPATCHER')")
 @SecurityRequirement(name = "bearerAuth")
 @Tag(name = "Group Management", description = "API для управления группами")
 public class GroupController {
@@ -32,6 +34,7 @@ public class GroupController {
     }
 
     @PostMapping("/create-group")
+    @PreAuthorize("hasRole('ADMIN')") // ТОЛЬКО Admin может создавать
     @Operation(summary = "Create new group", description = "Создание новой группы")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Group created successfully", content = @Content(schema = @Schema(implementation = GroupResponseDto.class))),
@@ -44,6 +47,7 @@ public class GroupController {
     }
 
     @PutMapping("/update-group/{groupId}")
+    @PreAuthorize("hasRole('ADMIN')") // ТОЛЬКО Admin может обновлять
     @Operation(summary = "Update group", description = "Обновление данных группы")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Group updated successfully", content = @Content(schema = @Schema(implementation = GroupResponseDto.class))),
@@ -53,11 +57,12 @@ public class GroupController {
     public ResponseEntity<GroupResponseDto> updateGroup(
             @Parameter(description = "Group ID", required = true) @PathVariable Long groupId,
             @Valid @RequestBody GroupDto groupDto) {
-        GroupResponseDto updatedGroup = groupService.updateGroupDto(groupId, groupDto);
+        GroupResponseDto updatedGroup = groupService.updateGroupDto(groupId, groupDto); 
         return ResponseEntity.ok(updatedGroup);
     }
 
     @DeleteMapping("/delete-group/{groupId}")
+    @PreAuthorize("hasRole('ADMIN')") // ТОЛЬКО Admin может удалять
     @Operation(summary = "Delete group", description = "Удаление группы")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Group deleted successfully"),
@@ -69,6 +74,7 @@ public class GroupController {
         return ResponseEntity.noContent().build();
     }
 
+    // GET методы наследуют hasAnyRole('ADMIN', 'DISPATCHER') с уровня класса
     @GetMapping("/group/{groupId}")
     @Operation(summary = "Get group by ID", description = "Получение данных группы по ID")
     @ApiResponses(value = {

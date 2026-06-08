@@ -1,4 +1,4 @@
-package app.timetable_back.controller.admin;
+package app.timetable_back.controller.dispatcher;
 
 import app.timetable_back.dto.LessonDto;
 import app.timetable_back.dto.LessonListViewDto;
@@ -22,12 +22,11 @@ import java.net.URI;
 import java.util.List;
 
 @RestController
-@RequestMapping("/admin")
-@PreAuthorize("hasRole('ADMIN')")
+@RequestMapping("/dispatcher")
+@PreAuthorize("hasRole('DISPATCHER')") // Только диспетчер может формировать расписание
 @SecurityRequirement(name = "bearerAuth")
-@Tag(name = "Lesson Management", description = "API для управления занятиями")
+@Tag(name = "Dispatcher Lesson Management", description = "API для формирования расписания (Диспетчер)")
 public class LessonController {
-
     private final LessonService lessonService;
 
     public LessonController(LessonService lessonService) {
@@ -37,22 +36,20 @@ public class LessonController {
     @PostMapping("/create-lesson")
     @Operation(summary = "Create new lesson", description = "Создание нового занятия с проверкой конфликтов")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Lesson created successfully",
-                    content = @Content(schema = @Schema(implementation = LessonResponseDto.class))),
+            @ApiResponse(responseCode = "201", description = "Lesson created successfully", content = @Content(schema = @Schema(implementation = LessonResponseDto.class))),
             @ApiResponse(responseCode = "400", description = "Invalid input data or schedule conflict"),
             @ApiResponse(responseCode = "403", description = "Access denied"),
             @ApiResponse(responseCode = "404", description = "Related entity not found (room, subject, teacher, group)")
     })
     public ResponseEntity<LessonResponseDto> createLesson(@Valid @RequestBody LessonDto lessonDto) {
         LessonResponseDto createdLesson = lessonService.createLessonDto(lessonDto);
-        return ResponseEntity.created(URI.create("/admin/lessons/" + createdLesson.getId())).body(createdLesson);
+        return ResponseEntity.created(URI.create("/dispatcher/lessons/" + createdLesson.getId())).body(createdLesson);
     }
 
     @PutMapping("/update-lesson/{lessonId}")
     @Operation(summary = "Update lesson", description = "Обновление занятия с проверкой конфликтов")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Lesson updated successfully",
-                    content = @Content(schema = @Schema(implementation = LessonResponseDto.class))),
+            @ApiResponse(responseCode = "200", description = "Lesson updated successfully", content = @Content(schema = @Schema(implementation = LessonResponseDto.class))),
             @ApiResponse(responseCode = "400", description = "Invalid input data or schedule conflict"),
             @ApiResponse(responseCode = "404", description = "Lesson or related entity not found")
     })
@@ -77,8 +74,7 @@ public class LessonController {
     @GetMapping("/lesson/{lessonId}")
     @Operation(summary = "Get lesson by ID", description = "Получение данных занятия по ID")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Lesson found",
-                    content = @Content(schema = @Schema(implementation = LessonResponseDto.class))),
+            @ApiResponse(responseCode = "200", description = "Lesson found", content = @Content(schema = @Schema(implementation = LessonResponseDto.class))),
             @ApiResponse(responseCode = "404", description = "Lesson not found")
     })
     public ResponseEntity<LessonResponseDto> getLesson(
@@ -89,24 +85,20 @@ public class LessonController {
     @GetMapping("/lessons")
     @Operation(summary = "Get all lessons", description = "Получение списка всех занятий")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Lessons found",
-                    content = @Content(schema = @Schema(implementation = LessonResponseDto.class)))
+            @ApiResponse(responseCode = "200", description = "Lessons found", content = @Content(schema = @Schema(implementation = LessonResponseDto.class)))
     })
     public ResponseEntity<List<LessonResponseDto>> getAllLessons() {
         return ResponseEntity.ok(lessonService.findAllDto());
     }
 
     @GetMapping("/lessons/list")
-    @Operation(summary = "Get paginated lessons list", description = "Получение пагинированного списка занятий (без id, createdAt, updatedAt)")
+    @Operation(summary = "Get paginated lessons list", description = "Получение пагинированного списка занятий")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Lessons found",
-                    content = @Content(schema = @Schema(implementation = PageResponse.class)))
+            @ApiResponse(responseCode = "200", description = "Lessons found", content = @Content(schema = @Schema(implementation = PageResponse.class)))
     })
     public ResponseEntity<PageResponse<LessonListViewDto>> getLessonsList(
-            @Parameter(description = "Номер страницы (начиная с 0)", example = "0")
-            @RequestParam(defaultValue = "0") int page,
-            @Parameter(description = "Размер страницы", example = "20")
-            @RequestParam(defaultValue = "20") int size) {
+            @Parameter(description = "Номер страницы (начиная с 0)", example = "0") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Размер страницы", example = "20") @RequestParam(defaultValue = "20") int size) {
         return ResponseEntity.ok(lessonService.findAllListView(page, size));
     }
 }

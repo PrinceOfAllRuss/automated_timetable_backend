@@ -1,4 +1,5 @@
 package app.timetable_back.controller.admin;
+
 import app.timetable_back.dto.PageResponse;
 import app.timetable_back.dto.RoomDto;
 import app.timetable_back.dto.RoomListViewDto;
@@ -16,12 +17,14 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
 import java.net.URI;
 import java.util.List;
 
 @RestController
 @RequestMapping("/admin")
-@PreAuthorize("hasRole('ADMIN')")
+// ИЗМЕНЕНИЕ: Разрешаем доступ ADMIN и DISPATCHER (для чтения справочника при составлении расписания)
+@PreAuthorize("hasAnyRole('ADMIN', 'DISPATCHER')")
 @SecurityRequirement(name = "bearerAuth")
 @Tag(name = "Room Management", description = "API для управления аудиториями")
 public class RoomController {
@@ -32,6 +35,7 @@ public class RoomController {
     }
 
     @PostMapping("/create-room")
+    @PreAuthorize("hasRole('ADMIN')") // ИЗМЕНЕНИЕ: Только ADMIN может создавать
     @Operation(summary = "Create new room", description = "Создание новой аудитории")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Room created successfully", content = @Content(schema = @Schema(implementation = RoomResponseDto.class))),
@@ -44,6 +48,7 @@ public class RoomController {
     }
 
     @PutMapping("/update-room/{roomId}")
+    @PreAuthorize("hasRole('ADMIN')") // ИЗМЕНЕНИЕ: Только ADMIN может обновлять
     @Operation(summary = "Update room", description = "Обновление данных аудитории")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Room updated successfully", content = @Content(schema = @Schema(implementation = RoomResponseDto.class))),
@@ -58,6 +63,7 @@ public class RoomController {
     }
 
     @DeleteMapping("/delete-room/{roomId}")
+    @PreAuthorize("hasRole('ADMIN')") // ИЗМЕНЕНИЕ: Только ADMIN может удалять
     @Operation(summary = "Delete room", description = "Удаление аудитории")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Room deleted successfully"),
@@ -69,6 +75,7 @@ public class RoomController {
         return ResponseEntity.noContent().build();
     }
 
+    // GET методы наследуют hasAnyRole('ADMIN', 'DISPATCHER') с уровня класса
     @GetMapping("/room/{roomId}")
     @Operation(summary = "Get room by ID", description = "Получение данных аудитории по ID")
     @ApiResponses(value = {

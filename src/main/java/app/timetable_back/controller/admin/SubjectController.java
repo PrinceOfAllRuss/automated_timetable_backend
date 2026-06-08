@@ -1,4 +1,5 @@
 package app.timetable_back.controller.admin;
+
 import app.timetable_back.dto.PageResponse;
 import app.timetable_back.dto.SubjectDto;
 import app.timetable_back.dto.SubjectListViewDto;
@@ -16,12 +17,14 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
 import java.net.URI;
 import java.util.List;
 
 @RestController
 @RequestMapping("/admin")
-@PreAuthorize("hasRole('ADMIN')")
+// ИЗМЕНЕНИЕ: Разрешаем доступ ADMIN и DISPATCHER (для чтения справочника при составлении расписания)
+@PreAuthorize("hasAnyRole('ADMIN', 'DISPATCHER')")
 @SecurityRequirement(name = "bearerAuth")
 @Tag(name = "Subject Management", description = "API для управления предметами")
 public class SubjectController {
@@ -32,6 +35,7 @@ public class SubjectController {
     }
 
     @PostMapping("/create-subject")
+    @PreAuthorize("hasRole('ADMIN')") // ИЗМЕНЕНИЕ: Только ADMIN может создавать
     @Operation(summary = "Create new subject", description = "Создание нового предмета")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Subject created successfully", content = @Content(schema = @Schema(implementation = SubjectResponseDto.class))),
@@ -44,6 +48,7 @@ public class SubjectController {
     }
 
     @PutMapping("/update-subject/{subjectId}")
+    @PreAuthorize("hasRole('ADMIN')") // ИЗМЕНЕНИЕ: Только ADMIN может обновлять
     @Operation(summary = "Update subject", description = "Обновление данных предмета")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Subject updated successfully", content = @Content(schema = @Schema(implementation = SubjectResponseDto.class))),
@@ -58,6 +63,7 @@ public class SubjectController {
     }
 
     @DeleteMapping("/delete-subject/{subjectId}")
+    @PreAuthorize("hasRole('ADMIN')") // ИЗМЕНЕНИЕ: Только ADMIN может удалять
     @Operation(summary = "Delete subject", description = "Удаление предмета")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Subject deleted successfully"),
@@ -69,6 +75,7 @@ public class SubjectController {
         return ResponseEntity.noContent().build();
     }
 
+    // GET методы наследуют hasAnyRole('ADMIN', 'DISPATCHER') с уровня класса
     @GetMapping("/subject/{subjectId}")
     @Operation(summary = "Get subject by ID", description = "Получение данных предмета по ID")
     @ApiResponses(value = {

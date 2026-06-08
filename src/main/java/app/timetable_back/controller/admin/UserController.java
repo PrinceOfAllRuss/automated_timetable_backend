@@ -1,4 +1,5 @@
 package app.timetable_back.controller.admin;
+
 import app.timetable_back.dto.PageResponse;
 import app.timetable_back.dto.UserDto;
 import app.timetable_back.dto.UserListViewDto;
@@ -16,12 +17,14 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
 import java.net.URI;
 import java.util.List;
 
 @RestController
 @RequestMapping("/admin")
-@PreAuthorize("hasRole('ADMIN')")
+// ИЗМЕНЕНИЕ: Разрешаем доступ ADMIN и DISPATCHER (для чтения справочника при составлении расписания)
+@PreAuthorize("hasAnyRole('ADMIN', 'DISPATCHER')")
 @SecurityRequirement(name = "bearerAuth")
 @Tag(name = "User Management", description = "API для управления пользователями")
 public class UserController {
@@ -32,6 +35,7 @@ public class UserController {
     }
 
     @PostMapping("/create-user")
+    @PreAuthorize("hasRole('ADMIN')") // ИЗМЕНЕНИЕ: Только ADMIN может создавать
     @Operation(summary = "Create new user", description = "Создание нового пользователя")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "User created successfully", content = @Content(schema = @Schema(implementation = UserResponseDto.class))),
@@ -44,6 +48,7 @@ public class UserController {
     }
 
     @PutMapping("/update-user/{userId}")
+    @PreAuthorize("hasRole('ADMIN')") // ИЗМЕНЕНИЕ: Только ADMIN может обновлять
     @Operation(summary = "Update user", description = "Обновление данных пользователя")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "User updated successfully", content = @Content(schema = @Schema(implementation = UserResponseDto.class))),
@@ -58,6 +63,7 @@ public class UserController {
     }
 
     @DeleteMapping("/delete-user/{userId}")
+    @PreAuthorize("hasRole('ADMIN')") // ИЗМЕНЕНИЕ: Только ADMIN может удалять
     @Operation(summary = "Delete user", description = "Удаление пользователя")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "User deleted successfully"),
@@ -69,6 +75,7 @@ public class UserController {
         return ResponseEntity.noContent().build();
     }
 
+    // GET методы наследуют hasAnyRole('ADMIN', 'DISPATCHER') с уровня класса
     @GetMapping("/user/{userId}")
     @Operation(summary = "Get user by ID", description = "Получение данных пользователя по ID")
     @ApiResponses(value = {

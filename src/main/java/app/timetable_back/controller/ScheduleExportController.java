@@ -22,12 +22,12 @@ import java.time.format.DateTimeFormatter;
 
 @RestController
 @RequestMapping("/export")
-@PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
+// ИЗМЕНЕНИЕ: Добавлена роль DISPATCHER для экспорта расписания
+@PreAuthorize("hasAnyRole('ADMIN', 'TEACHER', 'DISPATCHER')")
 @SecurityRequirement(name = "bearerAuth")
 @RequiredArgsConstructor
 @Tag(name = "Schedule Export", description = "API для экспорта расписания в Excel")
 public class ScheduleExportController {
-
     private final ScheduleExportService scheduleExportService;
     private final ExcelExportService excelExportService;
 

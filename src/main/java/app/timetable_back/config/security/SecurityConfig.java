@@ -72,15 +72,16 @@ public class SecurityConfig {
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                         // Auth endpoints
                         .requestMatchers("/auth/login", "/auth/refresh").permitAll()
-                        // Export endpoints (accessible by ADMIN and TEACHER)
-                        .requestMatchers("/export/**").hasAnyRole("ADMIN", "TEACHER")
-                        // Schedule view endpoints (accessible by ADMIN and TEACHER)
-                        .requestMatchers("/schedule/**").hasAnyRole("ADMIN", "TEACHER")
-                        // Comments
-                        .requestMatchers("/day-comments/**").hasAnyRole("ADMIN", "TEACHER")
-                        // Admin CRUD endpoints (strictly ADMIN only)
-                        .requestMatchers("/admin/**").hasRole("ADMIN")
-                        // All other requests
+                        
+                        .requestMatchers("/export/**").hasAnyRole("ADMIN", "TEACHER", "DISPATCHER")
+                        .requestMatchers("/schedule/**").hasAnyRole("ADMIN", "TEACHER", "DISPATCHER")
+                        
+                        .requestMatchers("/day-comments/**").hasAnyRole("ADMIN", "TEACHER", "DISPATCHER")
+                        
+                        .requestMatchers("/admin/**").hasAnyRole("ADMIN", "DISPATCHER")
+                        
+                        .requestMatchers("/dispatcher/**").hasRole("DISPATCHER")
+                        
                         .anyRequest().authenticated()
                 )
                 .httpBasic(basic -> basic.disable());
