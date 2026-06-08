@@ -1,5 +1,8 @@
 package app.timetable_back.dto;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 import app.timetable_back.entity.RecurrenceRuleType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -7,15 +10,13 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Schema(description = "Информация о занятии")
 public class LessonResponseDto {
+
     @Schema(description = "ID занятия", example = "1")
     private Long id;
 
@@ -36,12 +37,6 @@ public class LessonResponseDto {
 
     @Schema(description = "Преподаватель")
     private UserResponseDto teacher;
-
-    @Schema(description = "Переопределено", example = "false")
-    private Boolean isOverride;
-
-    @Schema(description = "Отменено", example = "false")
-    private Boolean isCancelled;
 
     @Schema(description = "Список ID групп", example = "[1, 2]")
     private List<Long> groupIds;

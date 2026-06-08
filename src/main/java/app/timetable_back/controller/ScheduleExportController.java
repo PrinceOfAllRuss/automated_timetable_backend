@@ -1,5 +1,14 @@
 package app.timetable_back.controller;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
 import app.timetable_back.dto.ScheduleExportDto;
 import app.timetable_back.service.ExcelExportService;
 import app.timetable_back.service.ScheduleExportService;
@@ -11,14 +20,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
-
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 
 @RestController
 @RequestMapping("/export")
@@ -36,16 +37,12 @@ public class ScheduleExportController {
     @GetMapping("/schedule")
     @Operation(summary = "Export schedule to Excel", description = "Выгрузка расписания в Excel формате по диапазону дат")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Файл успешно сгенерирован",
-                    content = @Content(mediaType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")),
+            @ApiResponse(responseCode = "200", description = "Файл успешно сгенерирован", content = @Content(mediaType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")),
             @ApiResponse(responseCode = "400", description = "Некорректный диапазон дат"),
-            @ApiResponse(responseCode = "403", description = "Access denied")
-    })
+            @ApiResponse(responseCode = "403", description = "Access denied")})
     public ResponseEntity<byte[]> exportSchedule(
-            @Parameter(description = "Дата начала (YYYY-MM-DD)", required = true)
-            @RequestParam("startDate") String startDate,
-            @Parameter(description = "Дата окончания (YYYY-MM-DD)", required = true)
-            @RequestParam("endDate") String endDate) {
+            @Parameter(description = "Дата начала (YYYY-MM-DD)", required = true) @RequestParam("startDate") String startDate,
+            @Parameter(description = "Дата окончания (YYYY-MM-DD)", required = true) @RequestParam("endDate") String endDate) {
 
         LocalDate start = LocalDate.parse(startDate, DATE_FORMATTER);
         LocalDate end = LocalDate.parse(endDate, DATE_FORMATTER);
@@ -69,9 +66,9 @@ public class ScheduleExportController {
         // Формируем имя файла с версией
         String fileName = "schedule_v2_" + startDate + "_" + endDate + ".xlsx";
 
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
-                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+        return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
+                .contentType(
+                        MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(excelData);
     }
 }

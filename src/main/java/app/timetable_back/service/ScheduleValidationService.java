@@ -1,15 +1,16 @@
 package app.timetable_back.service;
 
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import app.timetable_back.entity.UserRole;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.PersistenceContext;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
 
 @Service
 public class ScheduleValidationService {
@@ -17,132 +18,65 @@ public class ScheduleValidationService {
     @PersistenceContext
     private EntityManager entityManager;
 
-    /**
-     * Проверяет, что пользователь с указанным ID существует и имеет роль TEACHER
-     *
-     * @param teacherId ID преподавателя
-     * @throws EntityNotFoundException если пользователь не найден
-     * @throws IllegalArgumentException если пользователь не имеет роль TEACHER
-     */
     @Transactional(readOnly = true)
     public void validateTeacherRole(Long teacherId) {
-        if (teacherId == null) {
+        if (teacherId == null)
             return;
-        }
 
-        String query = """
-            SELECT u.role FROM User u WHERE u.id = :teacherId
-        """;
-
-        UserRole role = entityManager.createQuery(query, UserRole.class)
-                .setParameter("teacherId", teacherId)
-                .getResultStream()
-                .findFirst()
-                .orElseThrow(() -> new EntityNotFoundException("Пользователь с ID " + teacherId + " не найден"));
+        String query = "SELECT u.role FROM User u WHERE u.id = :teacherId";
+        UserRole role = entityManager.createQuery(query, UserRole.class).setParameter("teacherId", teacherId)
+                .getResultStream().findFirst()
+                .orElseThrow(() -> new EntityNotFoundException("Преподаватель с ID " + teacherId + " не найден"));
 
         if (role != UserRole.TEACHER) {
             throw new IllegalArgumentException(
-                "Пользователь с ID " + teacherId + " имеет роль " + role + " вместо TEACHER"
-            );
+                    "Пользователь с ID " + teacherId + " имеет роль " + role + ", а не TEACHER");
         }
     }
 
-    /**
-     * Проверяет, есть ли конфликт по группе (пересечение занятий по времени)
-     *
-     * @param groupId         ID группы
-     * @param startAt         Начало занятия
-     * @param endAt           Конец занятия
-     * @param excludeLessonId ID занятия для исключения (при обновлении)
-     * @return true если есть конфликт
-     */
     @Transactional(readOnly = true)
     public boolean hasGroupConflict(Long groupId, LocalDateTime startAt, LocalDateTime endAt, Long excludeLessonId) {
         String baseQuery = """
-            SELECT COUNT(*)
-            FROM LessonStudentGroup lsg
-            JOIN lsg.lesson l
-            WHERE lsg.id.groupId = :groupId
-              AND l.isCancelled = FALSE
-              AND l.startAt < :endAt
-              AND l.endAt > :startAt
-        """;
+                SELECT COUNT(*)
+                FROM LessonStudentGroup lsg
+                JOIN lsg.lesson l
+                WHERE lsg.id.groupId = :groupId
+                  AND l.startAt < :endAt
+                  AND l.endAt > :startAt
+                """;
 
         Long result;
         if (excludeLessonId != null) {
             String queryWithExclude = baseQuery + " AND l.id != :excludeLessonId";
-            result = entityManager.createQuery(queryWithExclude, Long.class)
-                    .setParameter("groupId", groupId)
-                    .setParameter("endAt", endAt)
-                    .setParameter("startAt", startAt)
-                    .setParameter("excludeLessonId", excludeLessonId)
-                    .getSingleResult();
+            result = entityManager.createQuery(queryWithExclude, Long.class).setParameter("groupId", groupId)
+                    .setParameter("endAt", endAt).setParameter("startAt", startAt)
+                    .setParameter("excludeLessonId", excludeLessonId).getSingleResult();
         } else {
-            result = entityManager.createQuery(baseQuery, Long.class)
-                    .setParameter("groupId", groupId)
-                    .setParameter("endAt", endAt)
-                    .setParameter("startAt", startAt)
-                    .getSingleResult();
+            result = entityManager.createQuery(baseQuery, Long.class).setParameter("groupId", groupId)
+                    .setParameter("endAt", endAt).setParameter("startAt", startAt).getSingleResult();
         }
-
         return result > 0;
     }
 
-    /**
-     * Проверяет, есть ли конфликт по группе (без исключения)
-     */
     @Transactional(readOnly = true)
     public boolean hasGroupConflict(Long groupId, LocalDateTime startAt, LocalDateTime endAt) {
         return hasGroupConflict(groupId, startAt, endAt, null);
     }
 
-    /**
-     * Проверяет, превышает ли количество студентов вместимость аудитории
-     *
-     * @param lessonId ID занятия
-     * @param roomId   ID аудитории
-     * @return true если вместимость достаточна
-     */
-    @Transactional(readOnly = true)
-    public boolean isRoomCapacitySufficient(Long lessonId, Long roomId) {
-        String totalStudentsQuery = """
-            SELECT COALESCE(SUM(g.studentCount), 0)
-            FROM LessonStudentGroup lsg
-            JOIN lsg.group g
-            WHERE lsg.id.lessonId = :lessonId
-        """;
-
-        Long totalStudents = entityManager.createQuery(totalStudentsQuery, Long.class)
-                .setParameter("lessonId", lessonId)
-                .getSingleResult();
-
-        String roomCapacityQuery = "SELECT r.capacity FROM Room r WHERE r.id = :roomId";
-        Integer capacity = entityManager.createQuery(roomCapacityQuery, Integer.class)
-                .setParameter("roomId", roomId)
-                .getSingleResult();
-
-        return totalStudents <= capacity;
-    }
-
-    /**
-     * Проверяет вместимость аудитории для нового занятия
-     */
     @Transactional(readOnly = true)
     public boolean isRoomCapacitySufficientForGroups(Long roomId, List<Long> groupIds) {
         String totalStudentsQuery = """
-            SELECT COALESCE(SUM(g.studentCount), 0)
-            FROM StudentGroup g
-            WHERE g.id IN :groupIds
-        """;
+                SELECT COALESCE(SUM(g.studentCount), 0)
+                FROM StudentGroup g
+                WHERE g.id IN :groupIds
+                """;
 
         Long totalStudents = entityManager.createQuery(totalStudentsQuery, Long.class)
-                .setParameter("groupIds", groupIds)
-                .getSingleResult();
+                .setParameter("groupIds", groupIds).getSingleResult();
 
-        Optional<Integer> capacity = entityManager.createQuery("SELECT r.capacity FROM Room r WHERE r.id = :roomId", Integer.class)
-                .setParameter("roomId", roomId)
-                .getResultStream()
-                .findFirst();
+        Optional<Integer> capacity = entityManager
+                .createQuery("SELECT r.capacity FROM Room r WHERE r.id = :roomId", Integer.class)
+                .setParameter("roomId", roomId).getResultStream().findFirst();
 
         return capacity.map(c -> totalStudents <= c).orElse(false);
     }

@@ -1,5 +1,8 @@
 package app.timetable_back.dto;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 import app.timetable_back.entity.RecurrenceRuleType;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -7,9 +10,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
-import java.util.List;
 
 @Data
 @Builder
@@ -19,28 +19,21 @@ public class LessonDto {
 
     private Long id;
 
-    @NotNull(message = "Start time is required")
+    @NotNull(message = "Время начала занятия обязательно для указания")
     private LocalDateTime startAt;
 
-    @NotNull(message = "End time is required")
+    @NotNull(message = "Время окончания занятия обязательно для указания")
     private LocalDateTime endAt;
 
-    // NEW: список аудиторий вместо одной
     private List<Long> roomIds;
 
-    @Positive(message = "Subject ID must be positive")
+    @Positive(message = "ID предмета должен быть положительным числом")
     private Long subjectId;
 
-    @Positive(message = "Teacher ID must be positive")
+    @Positive(message = "ID преподавателя должен быть положительным числом")
     private Long teacherId;
 
     private RecurrenceRuleType ruleType;
-
-    @Builder.Default
-    private Boolean isOverride = false;
-
-    @Builder.Default
-    private Boolean isCancelled = false;
 
     private List<Long> groupIds;
 }

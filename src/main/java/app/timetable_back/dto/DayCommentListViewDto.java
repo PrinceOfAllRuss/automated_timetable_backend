@@ -1,12 +1,12 @@
 package app.timetable_back.dto;
 
+import java.time.LocalDate;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDate;
 
 @Data
 @Builder
@@ -23,9 +23,6 @@ public class DayCommentListViewDto {
 
     @Schema(description = "Текст комментария", example = "Технический перерыв")
     private String commentText;
-
-    @Schema(description = "Удалён ли комментарий", example = "false")
-    private Boolean isDeleted;
 
     @Data
     @Builder

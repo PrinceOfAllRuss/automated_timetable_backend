@@ -1,15 +1,16 @@
 package app.timetable_back.entity;
 
-import jakarta.persistence.*;
-import jakarta.validation.constraints.*;
-import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.HashSet;
 import java.util.Set;
+
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+import lombok.*;
 
 @Entity
 @Table(name = "lessons")
@@ -45,20 +46,10 @@ public class Lesson {
     @Column(name = "rule_type")
     private RecurrenceRuleType ruleType;
 
-    @Column(name = "is_override")
-    @Builder.Default
-    private Boolean isOverride = false;
-
-    @Column(name = "is_cancelled")
-    @Builder.Default
-    private Boolean isCancelled = false;
-
-    // ИЗМЕНЕНИЕ: List заменен на Set
     @OneToMany(mappedBy = "lesson", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private Set<LessonStudentGroup> lessonStudentGroups = new HashSet<>();
 
-    // ИЗМЕНЕНИЕ: List заменен на Set
     @OneToMany(mappedBy = "lesson", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private Set<LessonRoom> lessonRooms = new HashSet<>();

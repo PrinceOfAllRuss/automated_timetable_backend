@@ -1,13 +1,13 @@
 package app.timetable_back.dto;
 
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDate;
-import java.time.OffsetDateTime;
 
 @Data
 @Builder
@@ -27,9 +27,6 @@ public class DayCommentResponseDto {
 
     @Schema(description = "Текст комментария", example = "Технический перерыв")
     private String commentText;
-
-    @Schema(description = "Удалён ли комментарий", example = "false")
-    private Boolean isDeleted;
 
     @Schema(description = "Время создания", example = "2026-03-11T14:00:00Z")
     private OffsetDateTime createdAt;

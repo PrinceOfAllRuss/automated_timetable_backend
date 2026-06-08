@@ -1,16 +1,14 @@
 package app.timetable_back.dto;
 
+import java.util.List;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
-/**
- * Универсальный DTO для пагинированного ответа
- */
+/** Универсальный DTO для пагинированного ответа */
 @Data
 @Builder
 @NoArgsConstructor

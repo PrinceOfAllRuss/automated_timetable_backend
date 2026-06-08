@@ -1,18 +1,17 @@
 package app.timetable_back.service;
 
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.stereotype.Service;
-
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Service;
 
 @Service
 public class TokenStorageService {
 
     private final RedisTemplate<String, String> redisTemplate;
     private static final String TOKEN_KEY_PREFIX = "refresh_token:";
-    private static final long REFRESH_TOKEN_TTL_SECONDS = 604800; // 7 days in seconds
+    private static final long REFRESH_TOKEN_TTL_SECONDS = 604800;
 
     public TokenStorageService(RedisTemplate<String, String> redisTemplate) {
         this.redisTemplate = redisTemplate;
@@ -29,9 +28,7 @@ public class TokenStorageService {
     }
 
     public boolean isTokenValid(String email, String refreshToken) {
-        return getToken(email)
-                .map(storedToken -> storedToken.equals(refreshToken))
-                .orElse(false);
+        return getToken(email).map(storedToken -> storedToken.equals(refreshToken)).orElse(false);
     }
 
     public void revokeToken(String email) {

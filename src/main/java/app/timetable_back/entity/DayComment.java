@@ -1,12 +1,13 @@
 package app.timetable_back.entity;
 
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+
+import org.hibernate.annotations.CreationTimestamp;
+
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-
-import java.time.LocalDate;
-import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "day_comments")
@@ -33,10 +34,6 @@ public class DayComment {
     @Column(name = "comment_text", nullable = false, columnDefinition = "TEXT")
     @NotBlank
     private String commentText;
-
-    @Column(name = "is_deleted")
-    @Builder.Default
-    private Boolean isDeleted = false;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

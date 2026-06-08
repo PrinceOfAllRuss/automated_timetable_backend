@@ -1,4 +1,15 @@
 package app.timetable_back.service;
+
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import app.timetable_back.dto.GroupDto;
 import app.timetable_back.dto.GroupListViewDto;
 import app.timetable_back.dto.GroupResponseDto;
@@ -7,14 +18,6 @@ import app.timetable_back.entity.StudentGroup;
 import app.timetable_back.exception.EntityInUseException;
 import app.timetable_back.repository.GroupRepository;
 import app.timetable_back.repository.LessonRepository;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 public class GroupService {
@@ -34,8 +37,7 @@ public class GroupService {
 
     @Transactional
     public StudentGroup createGroup(GroupDto groupDto) {
-        return groupRepository.save(StudentGroup.builder()
-                .name(groupDto.getName()).courseYear(groupDto.getCourseYear())
+        return groupRepository.save(StudentGroup.builder().name(groupDto.getName()).courseYear(groupDto.getCourseYear())
                 .studentCount(groupDto.getStudentCount()).build());
     }
 
@@ -55,7 +57,7 @@ public class GroupService {
         }
 
         Pageable firstResult = PageRequest.of(0, 1);
-        
+
         lessonRepository.findFirstByGroupId(id, firstResult).stream().findFirst().ifPresent(lesson -> {
             String date = lesson.getStartAt().format(DateTimeFormatter.ofPattern("dd-MM-yyyy"));
             throw new EntityInUseException("Нельзя удалять группу. Используется в уроке " + date);
@@ -64,11 +66,30 @@ public class GroupService {
         groupRepository.deleteById(id);
     }
 
-    @Transactional(readOnly = true) public List<StudentGroup> findAll() { return groupRepository.findAll(); }
-    @Transactional public GroupResponseDto createGroupDto(GroupDto dto) { return toDto(createGroup(dto)); }
-    @Transactional public GroupResponseDto updateGroupDto(Long id, GroupDto dto) { return toDto(updateGroup(id, dto)); }
-    @Transactional(readOnly = true) public GroupResponseDto findByIdDto(Long id) { return toDto(findById(id)); }
-    @Transactional(readOnly = true) public List<GroupResponseDto> findAllDto() { return groupRepository.findAll().stream().map(this::toDto).collect(Collectors.toList()); }
+    @Transactional(readOnly = true)
+    public List<StudentGroup> findAll() {
+        return groupRepository.findAll();
+    }
+
+    @Transactional
+    public GroupResponseDto createGroupDto(GroupDto dto) {
+        return toDto(createGroup(dto));
+    }
+
+    @Transactional
+    public GroupResponseDto updateGroupDto(Long id, GroupDto dto) {
+        return toDto(updateGroup(id, dto));
+    }
+
+    @Transactional(readOnly = true)
+    public GroupResponseDto findByIdDto(Long id) {
+        return toDto(findById(id));
+    }
+
+    @Transactional(readOnly = true)
+    public List<GroupResponseDto> findAllDto() {
+        return groupRepository.findAll().stream().map(this::toDto).collect(Collectors.toList());
+    }
 
     @Transactional(readOnly = true)
     public PageResponse<GroupListViewDto> findAllListView(int page, int size, String search) {
@@ -77,18 +98,19 @@ public class GroupService {
                 ? "%" + search.trim().toLowerCase() + "%"
                 : null;
         Page<StudentGroup> groupPage = groupRepository.findBySearchQuery(searchPattern, pageable);
-        List<GroupListViewDto> content = groupPage.getContent().stream().map(this::toListViewDto).collect(Collectors.toList());
-        return PageResponse.<GroupListViewDto>builder()
-                .content(content).page(page).size(size)
-                .totalElements(groupPage.getTotalElements()).totalPages(groupPage.getTotalPages())
-                .build();
+        List<GroupListViewDto> content = groupPage.getContent().stream().map(this::toListViewDto)
+                .collect(Collectors.toList());
+        return PageResponse.<GroupListViewDto>builder().content(content).page(page).size(size)
+                .totalElements(groupPage.getTotalElements()).totalPages(groupPage.getTotalPages()).build();
     }
 
     private GroupResponseDto toDto(StudentGroup g) {
         return GroupResponseDto.builder().id(g.getId()).name(g.getName()).courseYear(g.getCourseYear())
                 .studentCount(g.getStudentCount()).createdAt(g.getCreatedAt()).updatedAt(g.getUpdatedAt()).build();
     }
+
     private GroupListViewDto toListViewDto(StudentGroup g) {
-        return GroupListViewDto.builder().name(g.getName()).courseYear(g.getCourseYear()).studentCount(g.getStudentCount()).build();
+        return GroupListViewDto.builder().name(g.getName()).courseYear(g.getCourseYear())
+                .studentCount(g.getStudentCount()).build();
     }
 }

@@ -1,9 +1,9 @@
 package app.timetable_back.entity;
 
+import java.io.Serializable;
+
 import jakarta.persistence.Embeddable;
 import lombok.*;
-
-import java.io.Serializable;
 
 @Embeddable
 @Getter

@@ -1,17 +1,15 @@
 package app.timetable_back.dto;
 
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Map;
-
-/**
- * DTO для экспорта расписания по диапазону дат (формат по аудиториям)
- */
+/** DTO для экспорта расписания в Excel (структура по аудиториям) */
 @Data
 @Builder
 @NoArgsConstructor
@@ -31,7 +29,7 @@ public class ScheduleExportDto {
         private String roomNumber;
         private String building;
         private Integer capacity;
-        
+
         public String getDisplayName() {
             return roomNumber + " (" + capacity + " мест)";
         }
@@ -60,18 +58,20 @@ public class ScheduleExportDto {
         private String teacherName;
         private String groupsList;
         private String building;
-        private Boolean isCancelled;
         private String colorKey;
         private List<Long> mergedRoomIds;
 
+        /** Формирует текст для ячейки Excel. */
         public String getCellContent() {
-            if (subjectName == null || subjectName.isEmpty()) return "Available";
+            if (subjectName == null || subjectName.isEmpty()) {
+                return "Свободно";
+            }
             StringBuilder sb = new StringBuilder(subjectName);
             if (groupsList != null && !groupsList.isEmpty()) {
-                sb.append(", Группы: ").append(groupsList);
+                sb.append("\nГруппы: ").append(groupsList);
             }
             if (teacherName != null && !teacherName.isEmpty()) {
-                sb.append(", ").append(teacherName);
+                sb.append("\n").append(teacherName);
             }
             return sb.toString();
         }

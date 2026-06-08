@@ -1,10 +1,10 @@
 package app.timetable_back.entity;
 
-import jakarta.persistence.*;
-import lombok.*;
-
 import java.io.Serializable;
 import java.util.Objects;
+
+import jakarta.persistence.*;
+import lombok.*;
 
 @Embeddable
 @Getter
@@ -21,11 +21,12 @@ public class LessonStudentGroupId implements Serializable {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         LessonStudentGroupId that = (LessonStudentGroupId) o;
-        return Objects.equals(lessonId, that.lessonId) &&
-               Objects.equals(groupId, that.groupId);
+        return Objects.equals(lessonId, that.lessonId) && Objects.equals(groupId, that.groupId);
     }
 
     @Override

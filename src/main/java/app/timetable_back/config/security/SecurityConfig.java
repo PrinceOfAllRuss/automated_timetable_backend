@@ -1,7 +1,7 @@
 package app.timetable_back.config.security;
 
-import app.timetable_back.config.jwt.JwtAuthenticationFilter;
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -19,7 +19,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.List;
+import app.timetable_back.config.jwt.JwtAuthenticationFilter;
+import lombok.RequiredArgsConstructor;
 
 @Configuration
 @EnableWebSecurity
@@ -61,9 +62,7 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .csrf(csrf -> csrf.disable())
+        http.cors(cors -> cors.configurationSource(corsConfigurationSource())).csrf(csrf -> csrf.disable())
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -71,19 +70,12 @@ public class SecurityConfig {
                         // Swagger UI endpoints
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                         // Auth endpoints
-                        .requestMatchers("/auth/login", "/auth/refresh").permitAll()
-                        
-                        .requestMatchers("/export/**").hasAnyRole("ADMIN", "TEACHER", "DISPATCHER")
-                        .requestMatchers("/schedule/**").hasAnyRole("ADMIN", "TEACHER", "DISPATCHER")
-                        
-                        .requestMatchers("/day-comments/**").hasAnyRole("ADMIN", "TEACHER", "DISPATCHER")
-                        
-                        .requestMatchers("/admin/**").hasAnyRole("ADMIN", "DISPATCHER")
-                        
-                        .requestMatchers("/dispatcher/**").hasRole("DISPATCHER")
-                        
-                        .anyRequest().authenticated()
-                )
+                        .requestMatchers("/auth/login", "/auth/refresh").permitAll().requestMatchers("/export/**")
+                        .hasAnyRole("ADMIN", "TEACHER", "DISPATCHER").requestMatchers("/schedule/**")
+                        .hasAnyRole("ADMIN", "TEACHER", "DISPATCHER").requestMatchers("/day-comments/**")
+                        .hasAnyRole("ADMIN", "TEACHER", "DISPATCHER").requestMatchers("/admin/**")
+                        .hasAnyRole("ADMIN", "DISPATCHER").requestMatchers("/dispatcher/**").hasRole("DISPATCHER")
+                        .anyRequest().authenticated())
                 .httpBasic(basic -> basic.disable());
 
         return http.build();

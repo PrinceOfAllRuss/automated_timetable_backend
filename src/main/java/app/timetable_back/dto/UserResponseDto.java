@@ -1,13 +1,13 @@
 package app.timetable_back.dto;
 
+import java.time.OffsetDateTime;
+
 import app.timetable_back.entity.UserRole;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.time.OffsetDateTime;
 
 @Data
 @Builder

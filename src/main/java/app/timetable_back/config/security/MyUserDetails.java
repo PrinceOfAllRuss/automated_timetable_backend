@@ -1,14 +1,15 @@
 package app.timetable_back.config.security;
 
-import app.timetable_back.entity.User;
-import lombok.Data;
-import lombok.RequiredArgsConstructor;
+import java.util.Collection;
+import java.util.Collections;
+
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import java.util.Collection;
-import java.util.Collections;
+import app.timetable_back.entity.User;
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
 
 @Data
 @RequiredArgsConstructor

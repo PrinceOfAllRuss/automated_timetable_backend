@@ -1,14 +1,7 @@
 package app.timetable_back.service;
 
-import app.timetable_back.config.jwt.JwtTokenProvider;
-import app.timetable_back.config.security.MyUserDetails;
-import app.timetable_back.dto.AuthResponse;
-import app.timetable_back.dto.LoginRequest;
-import app.timetable_back.dto.RegisterRequest;
-import app.timetable_back.dto.RegistrationResponse;
-import app.timetable_back.entity.User;
-import app.timetable_back.repository.UserRepository;
-import lombok.extern.slf4j.Slf4j;
+import java.util.Date;
+
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -18,7 +11,15 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Date;
+import app.timetable_back.config.jwt.JwtTokenProvider;
+import app.timetable_back.config.security.MyUserDetails;
+import app.timetable_back.dto.AuthResponse;
+import app.timetable_back.dto.LoginRequest;
+import app.timetable_back.dto.RegisterRequest;
+import app.timetable_back.dto.RegistrationResponse;
+import app.timetable_back.entity.User;
+import app.timetable_back.repository.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @Transactional
@@ -30,13 +31,8 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final TokenStorageService tokenStorageService;
 
-    public AuthService(
-            AuthenticationManager authenticationManager,
-            JwtTokenProvider jwtTokenProvider,
-            UserRepository userRepository,
-            PasswordEncoder passwordEncoder,
-            TokenStorageService tokenStorageService
-    ) {
+    public AuthService(AuthenticationManager authenticationManager, JwtTokenProvider jwtTokenProvider,
+            UserRepository userRepository, PasswordEncoder passwordEncoder, TokenStorageService tokenStorageService) {
         this.authenticationManager = authenticationManager;
         this.jwtTokenProvider = jwtTokenProvider;
         this.userRepository = userRepository;
@@ -46,9 +42,8 @@ public class AuthService {
 
     public AuthResponse login(LoginRequest request) {
         try {
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-            );
+            Authentication authentication = authenticationManager
+                    .authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
             MyUserDetails userDetails = (MyUserDetails) authentication.getPrincipal();
@@ -59,13 +54,8 @@ public class AuthService {
 
             User user = userDetails.getUser();
 
-            return AuthResponse.builder()
-                    .userId(user.getId())
-                    .accessToken(accessToken)
-                    .refreshToken(refreshToken)
-                    .tokenType("Bearer")
-                    .role(user.getRole().name())
-                    .build();
+            return AuthResponse.builder().userId(user.getId()).accessToken(accessToken).refreshToken(refreshToken)
+                    .tokenType("Bearer").role(user.getRole().name()).build();
         } catch (BadCredentialsException e) {
             throw new BadCredentialsException("Неверный email или пароль");
         }
@@ -76,20 +66,13 @@ public class AuthService {
             throw new IllegalArgumentException("Пользователь с таким email уже существует");
         }
 
-        User user = User.builder()
-                .firstName(request.getFirstName())
-                .lastName(request.getLastName())
-                .email(request.getEmail())
-                .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .role(request.getRole())
-                .phone(request.getPhone())
-                .build();
+        User user = User.builder().firstName(request.getFirstName()).lastName(request.getLastName())
+                .email(request.getEmail()).passwordHash(passwordEncoder.encode(request.getPassword()))
+                .role(request.getRole()).phone(request.getPhone()).build();
 
         userRepository.save(user);
 
-        return RegistrationResponse.builder()
-                .message("Пользователь успешно зарегистрирован")
-                .build();
+        return RegistrationResponse.builder().message("Пользователь успешно зарегистрирован").build();
     }
 
     public AuthResponse refreshTokens(String refreshToken) {
@@ -117,13 +100,8 @@ public class AuthService {
 
         tokenStorageService.saveToken(email, newRefreshToken);
 
-        return AuthResponse.builder()
-                .userId(user.getId())
-                .accessToken(newAccessToken)
-                .refreshToken(newRefreshToken)
-                .tokenType("Bearer")
-                .role(user.getRole().name())
-                .build();
+        return AuthResponse.builder().userId(user.getId()).accessToken(newAccessToken).refreshToken(newRefreshToken)
+                .tokenType("Bearer").role(user.getRole().name()).build();
     }
 
     public void logout(Authentication authentication) {

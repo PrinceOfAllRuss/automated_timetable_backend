@@ -6,9 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * DTO для отображения группы в списке (без id, createdAt, updatedAt)
- */
+/** DTO для отображения группы в списке (без id, createdAt, updatedAt) */
 @Data
 @Builder
 @NoArgsConstructor

@@ -1,10 +1,11 @@
 package app.timetable_back.entity;
 
-import jakarta.persistence.*;
-import lombok.*;
+import java.time.OffsetDateTime;
+
 import org.hibernate.annotations.CreationTimestamp;
 
-import java.time.OffsetDateTime;
+import jakarta.persistence.*;
+import lombok.*;
 
 @Entity
 @Table(name = "lessons_room")

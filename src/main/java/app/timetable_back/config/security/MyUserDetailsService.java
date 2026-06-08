@@ -1,14 +1,15 @@
 package app.timetable_back.config.security;
 
-import app.timetable_back.entity.User;
-import app.timetable_back.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
+import java.util.Optional;
+
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.util.Optional;
+import app.timetable_back.entity.User;
+import app.timetable_back.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
